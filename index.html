@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>สถิติคนพิการที่มีบัตรประจำตัวคนพิการ · แผนที่ 3 มิติ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* =========================================================
+   ธีม: สว่าง สะอาด — แก้สีทั้งหมดได้ที่ตัวแปรด้านล่าง
+   สีเพศใช้ชุดสีที่ผ่านการตรวจ colorblind-safe (น้ำเงิน/ส้ม)
+   ========================================================= */
+:root{
+  --bg:#f3f6fb;
+  --surface:#ffffff;
+  --ink:#0f172a;
+  --ink-2:#475569;
+  --muted:#7a8ba1;
+  --line:#e4e9f1;
+  --track:#edf1f7;
+  --accent:#1c5cab;
+  --accent-soft:#e8f0fc;
+  --male:#2a78d6;
+  --female:#eb6834;
+  --radius:18px;
+  --shadow:0 1px 2px rgba(15,23,42,.05),0 12px 32px rgba(30,58,110,.10);
+  --panel-w:480px;
+  --font:'Prompt','Noto Sans Thai','Sarabun','Tahoma',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  font-family:var(--font);color:var(--ink);overflow:hidden;
+  background:radial-gradient(1100px 720px at 38% 42%,#ffffff 0%,#f0f4fa 58%,#e5ecf6 100%);
+  -webkit-font-smoothing:antialiased;
+}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- แถบบน ---------- */
+.topbar{
+  position:fixed;inset:0 0 auto 0;height:64px;padding:0 24px;z-index:5;
+  display:flex;align-items:center;justify-content:space-between;pointer-events:none;
+}
+.topbar > *{pointer-events:auto}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:30px;height:30px;border-radius:9px;background:var(--accent);display:grid;place-items:center;flex:none}
+.brand-mark svg{width:18px;height:18px}
+.brand h1{font-size:16px;font-weight:600;margin:0;line-height:1.25}
+.brand p{font-size:12px;color:var(--ink-2);margin:0;line-height:1.3}
+.ghost-btn{
+  border:1px solid var(--line);background:rgba(255,255,255,.85);backdrop-filter:blur(6px);
+  border-radius:999px;padding:8px 16px;font-size:13px;cursor:pointer;color:var(--ink-2);
+  transition:background .2s,color .2s,border-color .2s,opacity .3s;
+}
+.ghost-btn:hover{background:#fff;color:var(--ink);border-color:#cfd8e6}
+
+/* ---------- เวที 3D ---------- */
+.stage{position:fixed;inset:0}
+#map{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+#map.hovering{cursor:pointer}
+#map.dragging{cursor:grabbing}
+
+/* ---------- การ์ดภาพรวมประเทศ ---------- */
+.overview{
+  position:fixed;left:24px;top:80px;width:304px;max-height:calc(100vh - 100px);overflow-y:auto;z-index:4;
+  background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 20px 16px;
+  transition:opacity .35s,transform .45s cubic-bezier(.2,.8,.2,1);scrollbar-width:thin;
+}
+.overview h2{margin:0;font-size:14px;font-weight:500;color:var(--ink-2)}
+.hero{font-size:40px;font-weight:600;line-height:1.2;letter-spacing:-.015em;margin-top:2px}
+.hero small{font-size:14px;font-weight:400;color:var(--muted);margin-left:6px;letter-spacing:0}
+.note{margin:10px 0 0;font-size:12px;color:var(--muted);line-height:1.55}
+.ov-sec{margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.ov-sec h3{margin:0 0 10px;font-size:13px;font-weight:600}
+.ramp{height:8px;border-radius:999px;margin-top:10px;background:linear-gradient(90deg,#cde2fb,#86b6ef 50%,#2a78d6)}
+.ramp-lbl{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:5px}
+.hint{margin:14px 0 0;font-size:12px;color:var(--muted);line-height:1.5}
+
+.chips{
+  position:fixed;left:0;right:0;bottom:20px;z-index:4;display:flex;justify-content:center;flex-wrap:wrap;gap:8px;
+  padding:0 16px;transition:right .55s cubic-bezier(.2,.8,.2,1);
+}
+.chip{
+  border:1px solid var(--line);background:rgba(255,255,255,.92);border-radius:999px;padding:8px 16px;
+  font-size:13px;cursor:pointer;color:var(--ink-2);transition:all .2s;
+}
+.chip:hover{border-color:#b9c9e2;color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+
+.tip{
+  position:fixed;z-index:9;pointer-events:none;opacity:0;transform:translateY(4px);
+  background:var(--ink);color:#fff;border-radius:12px;padding:10px 14px;font-size:13px;line-height:1.5;
+  transition:opacity .12s,transform .12s;box-shadow:0 8px 24px rgba(15,23,42,.25);white-space:nowrap;
+}
+.tip.on{opacity:1;transform:none}
+.tip b{font-weight:600;display:block;margin-bottom:2px}
+.tip span{display:block;color:#c3cddd;font-size:12px}
+.tip .sw{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+
+/* ---------- ตัวกรอง ---------- */
+.filters-block{display:grid;gap:12px}
+.field{display:grid;gap:6px;min-width:0}
+.field label,.field .lbl{font-size:12px;color:var(--ink-2)}
+.field.full{grid-column:1/-1}
+select{
+  appearance:none;width:100%;height:40px;padding:0 34px 0 12px;border:1px solid var(--line);border-radius:10px;
+  background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4.5l4 4 4-4' fill='none' stroke='%238190a5' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center;
+  font-size:14px;text-overflow:ellipsis;cursor:pointer;
+}
+select:hover{border-color:#cbd5e5}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--track);border-radius:10px;padding:3px;gap:3px;position:relative}
+.seg.two{grid-template-columns:repeat(2,1fr)}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label{
+  text-align:center;padding:7px 0;border-radius:8px;font-size:13px;cursor:pointer;color:var(--ink-2);
+  transition:background .2s,color .2s,box-shadow .2s;
+}
+.seg input:checked + label{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(15,23,42,.12);font-weight:500}
+.seg input:focus-visible + label{outline:2px solid var(--accent)}
+
+/* ---------- หน้ารายละเอียดเต็มจอ ---------- */
+.panel{
+  position:fixed;z-index:6;background:var(--bg);display:flex;flex-direction:column;overflow:hidden;
+  top:16px;right:16px;bottom:16px;left:calc(100% - var(--panel-w) - 16px);
+  border-radius:22px;box-shadow:var(--shadow);
+  transform:translateX(calc(100% + 32px));visibility:hidden;
+  transition:transform .6s cubic-bezier(.2,.8,.2,1),visibility 0s .6s,left .55s cubic-bezier(.2,.8,.2,1),top .55s cubic-bezier(.2,.8,.2,1),right .55s cubic-bezier(.2,.8,.2,1),bottom .55s cubic-bezier(.2,.8,.2,1),border-radius .55s;
+}
+body.has-selection .panel{transform:none;visibility:visible;transition:transform .6s cubic-bezier(.2,.8,.2,1),left .55s cubic-bezier(.2,.8,.2,1),top .55s cubic-bezier(.2,.8,.2,1),right .55s cubic-bezier(.2,.8,.2,1),bottom .55s cubic-bezier(.2,.8,.2,1),border-radius .55s}
+body.expanded .panel{top:0;right:0;bottom:0;left:0;border-radius:0;box-shadow:none}
+body.has-selection #resetBtn{opacity:0;pointer-events:none}
+body.has-selection .overview{opacity:0;transform:translateX(-14px);pointer-events:none;visibility:hidden}
+body.has-selection .chips{right:calc(var(--panel-w) + 32px)}
+body.expanded .chips{opacity:0;pointer-events:none}
+
+.panel-head{background:var(--surface);border-bottom:1px solid var(--line);padding:14px 32px 14px;flex:none}
+.head-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;max-width:1320px;margin:0 auto}
+.back{
+  display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:999px;
+  padding:7px 14px 7px 10px;font-size:13px;color:var(--ink-2);cursor:pointer;flex:none;
+}
+.back:hover{color:var(--accent);border-color:#b9c9e2}
+.back svg{width:14px;height:14px}
+.titleblock{flex:1;min-width:200px}
+.titleblock h2{margin:0;font-size:26px;font-weight:600;letter-spacing:-.01em;line-height:1.3}
+.titleblock p{margin:0;font-size:13px;color:var(--ink-2)}
+.rtabs{display:flex;gap:6px;flex-wrap:wrap}
+.toolbar{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:end;max-width:1320px;margin:14px auto 0}
+.toolbar .field{width:240px}
+.toolbar .filters-block{display:flex;gap:20px;align-items:end;flex-wrap:wrap}
+.toolbar .filters-block .field:last-child{width:240px}
+.panel-body{flex:1;overflow-y:auto;scrollbar-width:thin}
+.dash{max-width:1320px;margin:0 auto;padding:20px 32px 48px;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:16px}
+.s12{grid-column:span 12}.s8{grid-column:span 8}.s7{grid-column:span 7}.s6{grid-column:span 6}.s5{grid-column:span 5}.s4{grid-column:span 4}
+
+.kpis{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;min-width:0}
+.kpi .k{font-size:12.5px;color:var(--ink-2)}
+.kpi .v{white-space:normal;font-size:32px;font-weight:600;line-height:1.25;margin-top:2px;letter-spacing:-.015em}
+.kpi .v small{font-size:13px;font-weight:400;color:var(--muted);margin-left:4px;letter-spacing:0}
+.kpi .v.txt{font-size:18px;line-height:1.45;margin-top:6px;overflow-wrap:anywhere}
+.kpi .s{font-size:12px;color:var(--muted);margin-top:2px}
+
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 20px;min-width:0}
+.card h3{margin:0 0 4px;font-size:15px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card .cap{margin:0 0 14px;font-size:12px;color:var(--muted);line-height:1.5}
+.legend{display:flex;gap:14px;font-size:12px;font-weight:400;color:var(--ink-2)}
+.legend i,.split i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.m{background:var(--male)} .f{background:var(--female)}
+svg text{font-family:var(--font)}
+.hv{fill:transparent}.hv:hover{fill:rgba(28,92,171,.07)}
+.heat{display:grid;gap:2px;font-size:12px}
+.heat .hh{position:sticky;top:0;background:#fff;color:var(--ink-2);font-size:11px;text-align:center;padding:4px 0 6px;z-index:1;line-height:1.25}
+.heat .rl{color:var(--ink-2);padding:0 6px 0 0;display:flex;align-items:center;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.heat .rl:hover,.heat .rl.on{color:var(--accent)}
+.heat .c{height:22px;border-radius:4px;cursor:pointer}
+.heatwrap{max-height:470px;overflow:auto;scrollbar-width:thin}
+
+
+
+.wf{display:flex;flex-direction:column;gap:14px}
+.wf-grid{display:grid;grid-template-columns:repeat(10,1fr);gap:6px;width:100%;max-width:270px;margin:0 auto}
+.wf-grid i{width:100%;aspect-ratio:1;border-radius:50%;display:block;transition:transform .15s}.wf-grid i:hover{transform:scale(1.18)}
+.wf-leg{display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--line);padding-top:14px}
+.wf-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:8px;cursor:default}
+.wf-row[data-type]{cursor:pointer}.wf-row:hover{background:#f5f8fc}
+.wf-row b{width:14px;height:14px;border-radius:50%;flex:none}
+.wf-n{flex:1;font-size:13px;color:var(--ink-2);line-height:1.35}.wf-n small{display:block;font-size:11px;color:#64748b}
+.wf-v strong{font-size:20px;color:var(--ink)}.wf-v small{white-space:nowrap;font-size:11px;color:var(--ink-3,#64748b)}
+
+
+/* ---------- ปุ่มส่งออก ---------- */
+.topbar-actions{display:flex;gap:10px;align-items:center}
+.export{position:relative;display:inline-block}
+.export-btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 14px;font-size:13px;cursor:pointer;color:var(--ink-2);transition:background .2s,color .2s,border-color .2s}
+.export-btn:hover,.export.open .export-btn{color:var(--accent);border-color:#b9c9e2}
+.export-btn svg{width:14px;height:14px}
+.export-menu{position:absolute;right:0;top:calc(100% + 6px);min-width:210px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(15,23,42,.16);padding:6px;display:none;z-index:30}
+.export.open .export-menu{display:block}
+.export-menu button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;text-align:left;border:0;background:transparent;border-radius:8px;padding:8px 10px;cursor:pointer;font-size:13px;color:var(--ink)}
+.export-menu button small{font-size:11px;color:#64748b}
+.export-menu button:hover{background:#f1f5fb}
+.export-toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#0f172a;color:#fff;padding:9px 16px;border-radius:999px;font-size:13px;z-index:60;opacity:0;pointer-events:none;transition:opacity .25s}
+.export-toast.on{opacity:1}
+.panel .export{margin-left:8px}
+body:not(.expanded) .head-row{flex-wrap:wrap}
+@media print{
+  @page{size:A4 landscape;margin:8mm}
+  html,body{height:auto!important;overflow:visible!important;background:#fff!important}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .topbar,.chips,.export,.expand-btn,.back,.hint,#rtabs,.export-toast,#map,.toolbar,.reset-hint{display:none!important}
+  .stage{position:static!important;display:block!important;height:auto!important;overflow:visible!important}
+  .overview,.panel{position:static!important;visibility:visible!important;transform:none!important;opacity:1!important;width:auto!important;height:auto!important;max-height:none!important;overflow:visible!important;box-shadow:none!important;border-radius:0!important}
+  .panel-body,.dash{overflow:visible!important;height:auto!important}
+  body.has-selection .overview{display:none!important}
+  body:not(.has-selection) .panel{display:none!important}
+  .dash{display:block!important;column-count:2;column-gap:16px;padding:8px!important}
+  .dash>*{display:block!important;width:100%!important;break-inside:avoid;margin:0 0 14px!important}
+  .dash>.kpis{column-span:all;display:grid!important}
+  .card{break-inside:avoid}
+  .scroll{max-height:none!important;overflow:visible!important}
+}
+
+/* ---------- โหมดครึ่งจอ (คลิกครั้งแรก) ---------- */
+body:not(.expanded) .panel-head{padding:14px 20px 14px}
+body:not(.expanded) .head-row{gap:10px}
+body:not(.expanded) .titleblock{order:3;flex-basis:100%;min-width:0}
+body:not(.expanded) .titleblock h2{font-size:22px}
+body:not(.expanded) .rtabs{display:none}
+body:not(.expanded) .toolbar{margin-top:12px;gap:10px}
+body:not(.expanded) .toolbar .field,body:not(.expanded) .toolbar .filters-block,body:not(.expanded) .toolbar .filters-block .field:last-child,body:not(.expanded) #filterSlotPanel{width:100%}
+body:not(.expanded) .toolbar .filters-block{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+body:not(.expanded) .dash{padding:16px 20px 32px;gap:14px}
+body:not(.expanded) .s8,body:not(.expanded) .s7,body:not(.expanded) .s6,body:not(.expanded) .s5,body:not(.expanded) .s4{grid-column:1/-1}
+body:not(.expanded) .kpis{grid-template-columns:1fr 1fr;gap:12px}
+body:not(.expanded) .kpi .v{font-size:26px}
+body:not(.expanded) .kpi .v.txt{font-size:15px}
+body:not(.expanded) .heat{min-width:540px}
+.expand-btn{margin-left:auto;background:var(--accent);border-color:var(--accent);color:#fff;padding:7px 14px}
+.expand-btn:hover{background:#164a8c;color:#fff;border-color:#164a8c}
+body.expanded .expand-btn{background:#fff;color:var(--ink-2);border-color:var(--line)}
+body.expanded .expand-btn:hover{background:#fff;color:var(--accent);border-color:#b9c9e2}
+.expand-btn svg{width:14px;height:14px}
+body.expanded .expand-btn{margin-left:0}
+
+/* แถบซ้อน (ชาย + หญิง) */
+.bars{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.brow{
+  display:grid;gap:5px;width:100%;border:0;background:none;padding:6px 8px;margin:0 -8px;width:calc(100% + 16px);
+  text-align:left;cursor:pointer;border-radius:8px;transition:opacity .2s,background .2s;
+}
+.brow:hover{background:#f5f8fc}
+.brow .nm{font-size:13px;color:var(--ink-2)}
+.brow.compact{grid-template-columns:108px 1fr;align-items:center;gap:10px}
+.brow.on .nm{color:var(--accent);font-weight:500}
+.bars.has-on .brow:not(.on){opacity:.42}
+.barline{display:flex;align-items:center;gap:8px;min-width:0}
+.bar{flex:none;display:flex;gap:2px;width:calc((100% - 76px) * var(--k));min-width:0;height:12px}
+.bar i{display:block;height:100%;min-width:2px}
+.bar i:last-child{border-radius:0 4px 4px 0}
+.v{font-size:12px;color:var(--ink);font-weight:500;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* แถบสัดส่วนบางพร้อมรายการ */
+.sbar{display:flex;gap:2px;height:8px;margin-top:12px}
+.sbar i{display:block;height:100%;min-width:2px}
+.sbar i:first-child{border-radius:999px 0 0 999px}
+.sbar i:last-child{border-radius:0 999px 999px 0}
+.sbar i:only-child{border-radius:999px}
+.split{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
+.split li{display:grid;grid-template-columns:1fr auto 54px;gap:8px;font-size:13px;color:var(--ink-2);align-items:baseline}
+.split b{font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
+.split em{font-style:normal;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+
+/* ตารางจังหวัด */
+.view-toggle{display:inline-grid;grid-template-columns:1fr 1fr;background:var(--track);border-radius:8px;padding:2px;gap:2px}
+.view-toggle button{border:0;background:none;padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer;color:var(--ink-2)}
+.view-toggle button[aria-pressed="true"]{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(15,23,42,.12)}
+.scroll{max-height:340px;overflow-y:auto;padding-right:6px;scrollbar-width:thin}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{position:sticky;top:0;background:#fff;text-align:right;font-weight:500;color:var(--ink-2);padding:6px 6px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+td{text-align:right;padding:7px 6px;border-bottom:1px solid #f0f3f8;font-variant-numeric:tabular-nums}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:#f5f8fc}
+tr.on td{color:var(--accent);font-weight:500}
+
+.foot{margin:18px 0 0;font-size:12px;color:var(--muted);line-height:1.6}
+
+/* ---------- จอเล็ก ---------- */
+@media (max-width:959px){
+  .brand p{display:none}
+  .brand h1{font-size:14px;max-width:230px}
+  #resetBtn{display:none}
+  .chips,body.has-selection .chips{display:none}
+  .overview{top:auto;left:10px;right:10px;bottom:10px;width:auto;max-height:46vh;padding:14px 16px}
+  .hero{font-size:32px}
+  .panel{top:auto;left:0;right:0;bottom:0;height:58vh;border-radius:22px 22px 0 0;transform:translateY(105%);transition:transform .5s cubic-bezier(.2,.8,.2,1),visibility 0s .5s}
+  body.has-selection .panel{transform:none;transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+  body.expanded .panel{top:0;height:100vh;border-radius:0}
+  body:not(.expanded) .toolbar .filters-block{grid-template-columns:1fr}
+  .panel-head{padding:12px 16px}
+  .titleblock h2{font-size:20px}
+  .rtabs{display:none}
+  .toolbar .field,.toolbar .filters-block .field:last-child{width:100%}
+  .toolbar .filters-block{width:100%}
+  .dash{padding:14px 16px 40px;gap:12px}
+  .s8,.s7,.s6,.s5,.s4{grid-column:1/-1}
+  .kpis{grid-template-columns:1fr 1fr;gap:12px}
+  .kpi .v{font-size:24px}
+}
+@media (prefers-reduced-motion:reduce){ *{transition-duration:.01ms !important} }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>
+    </div>
+    <div>
+      <h1>สถิติคนพิการที่มีบัตรประจำตัวคนพิการ</h1>
+      <p>จำแนกตามจังหวัด ประเภทความพิการ และเพศ</p>
+    </div>
+  </div>
+  <div class="topbar-actions">
+  <div class="export" data-export>
+    <button class="export-btn" type="button" aria-haspopup="true" aria-expanded="false" data-export-toggle>
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M5 7l3 3 3-3M3 13h10"/></svg>ส่งออก
+    </button>
+    <div class="export-menu" role="menu">
+      <button type="button" role="menuitem" data-fmt="pdf">PDF<small>สรุปหน้าที่เห็นอยู่ทั้งหมดเป็นไฟล์ PDF</small></button>
+      <button type="button" role="menuitem" data-fmt="xlsx">Excel (.xlsx)<small>ตารางข้อมูลรายจังหวัดตามขอบเขตที่เลือก</small></button>
+      <button type="button" role="menuitem" data-fmt="csv">CSV (.csv)<small>ตารางเดียวกัน เปิดด้วย Excel ภาษาไทยได้</small></button>
+    </div>
+  </div>
+  <button class="ghost-btn" id="resetBtn" type="button">รีเซ็ตมุมมอง</button>
+  </div>
+</header>
+
+<div class="export-toast" id="exportToast" role="status" aria-live="polite"></div>
+<main class="stage">
+  <canvas id="map" role="img" aria-label="แผนที่ 3 มิติของประเทศไทยแบ่งเป็น 5 ส่วนตามไฟล์ข้อมูล คลิกที่ภาคเพื่อดูแดชบอร์ด หรือเลือกจากรายการภาค"></canvas>
+
+  <aside class="overview" id="overview" aria-label="ภาพรวมทั้งประเทศ">
+    <h2 id="ovTitle">คนพิการทั้งประเทศ</h2>
+    <div class="hero" id="ovTotal">—</div>
+    <div class="sbar" id="ovSbar" role="img"></div>
+    <ul class="split" id="ovSplit"></ul>
+    <p class="note" id="ovNote"></p>
+
+    <section class="ov-sec" id="filterSlotOv">
+      <div class="filters-block" id="filtersBlock">
+        <div class="field">
+          <label for="fType">ประเภทความพิการ</label>
+          <select id="fType"></select>
+        </div>
+        <div class="field">
+          <span class="lbl" id="gLbl">เพศ</span>
+          <div class="seg" role="radiogroup" aria-labelledby="gLbl">
+            <input type="radio" name="gender" id="g-all" value="all" checked><label for="g-all">ทั้งหมด</label>
+            <input type="radio" name="gender" id="g-m" value="male"><label for="g-m">ชาย</label>
+            <input type="radio" name="gender" id="g-f" value="female"><label for="g-f">หญิง</label>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="ov-sec" hidden style="display:none">
+      <h3>สีบนแผนที่</h3>
+      <div class="seg two" role="radiogroup" aria-label="ค่าที่ใช้ลงสีแผนที่">
+        <input type="radio" name="mm" id="mm-total" value="total" checked><label for="mm-total">จำนวนรวม</label>
+        <input type="radio" name="mm" id="mm-avg" value="avg"><label for="mm-avg">เฉลี่ยต่อจังหวัด</label>
+      </div>
+      <div class="ramp" aria-hidden="true"></div>
+      <div class="ramp-lbl"><span id="rampMin">—</span><span id="rampMax">—</span></div>
+    </section>
+
+    <section class="ov-sec">
+      <h3>แยกตามภาค <span class="legend" style="float:right"><span><i class="m"></i>ชาย</span><span><i class="f"></i>หญิง</span></span></h3>
+      <ul class="bars" id="regionBars"></ul>
+    </section>
+
+    <p class="hint">คลิกที่ภาคบนแผนที่เพื่อดูแดชบอร์ด · ลากเพื่อหมุน · เลื่อนล้อเมาส์เพื่อซูม</p>
+  </aside>
+
+  <nav class="chips" id="chips" aria-label="เลือกภาค"></nav>
+</main>
+<div class="tip" id="tip" role="status"></div>
+
+<aside class="panel" id="panel" aria-label="รายละเอียดรายภาค">
+  <div class="panel-head">
+    <div class="head-row">
+      <button class="back" id="backBtn" type="button">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>
+        กลับแผนที่
+      </button>
+      <button class="back expand-btn" id="expandBtn" type="button" aria-pressed="false">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2H2v4M10 2h4v4M6 14H2v-4M10 14h4v-4"/></svg>
+        <span id="expandTxt">ดูเต็มจอ</span>
+      </button>
+      <div class="export" data-export>
+    <button class="export-btn" type="button" aria-haspopup="true" aria-expanded="false" data-export-toggle>
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M5 7l3 3 3-3M3 13h10"/></svg>ส่งออก
+    </button>
+    <div class="export-menu" role="menu">
+      <button type="button" role="menuitem" data-fmt="pdf">PDF<small>สรุปหน้าที่เห็นอยู่ทั้งหมดเป็นไฟล์ PDF</small></button>
+      <button type="button" role="menuitem" data-fmt="xlsx">Excel (.xlsx)<small>ตารางข้อมูลรายจังหวัดตามขอบเขตที่เลือก</small></button>
+      <button type="button" role="menuitem" data-fmt="csv">CSV (.csv)<small>ตารางเดียวกัน เปิดด้วย Excel ภาษาไทยได้</small></button>
+    </div>
+  </div>
+      <div class="titleblock"><h2 id="pName">—</h2><p id="pSub">—</p></div>
+      <nav class="rtabs" id="rtabs" aria-label="สลับภาค"></nav>
+    </div>
+    <div class="toolbar">
+      <div class="field" id="provField"><label for="fProv">จังหวัด</label><select id="fProv"></select></div>
+      <div id="filterSlotPanel"></div>
+    </div>
+  </div>
+
+  <div class="panel-body" id="panelBody">
+    <div class="dash">
+      <div class="kpis">
+        <div class="kpi"><div class="k" id="k1l">คนพิการ</div><div class="v num" id="k1v">—</div>
+          <div class="sbar" id="gSbar" role="img" style="margin-top:8px"></div><div class="s" id="gCap"></div></div>
+        <div class="kpi"><div class="k" id="k2l">สัดส่วนของทั้งประเทศ</div><div class="v num" id="k2v">—</div><div class="s" id="k2s"></div></div>
+        <div class="kpi"><div class="k" id="k3l">ประเภทที่พบมากที่สุด</div><div class="v txt" id="k3v">—</div><div class="s" id="k3s"></div></div>
+        <div class="kpi"><div class="k" id="k4l">จังหวัดที่มีมากที่สุด</div><div class="v txt" id="k4v">—</div><div class="s" id="k4s"></div></div>
+      </div>
+
+      <section class="card s7">
+        <h3>ประเภทความพิการ แยกชาย–หญิง <span class="legend"><span><i class="m"></i>ชาย</span><span><i class="f"></i>หญิง</span></span></h3>
+        <p class="cap">เรียงจากมากไปน้อย · คลิกแถวเพื่อกรองตามประเภท</p>
+        <div id="bfly"></div>
+      </section>
+
+      <section class="card s5">
+        <h3>ถ้าผู้พิการในภาคนี้มี 100 คน</h3>
+        <p class="cap">1 จุด = 1 คนจาก 100 คน · สีแสดงประเภทความพิการ · ดูประเภทที่พบมาก 4 อันดับแรก ที่เหลือรวมเป็น "อื่นๆ"</p>
+        <div id="dvg"></div>
+      </section>
+
+      <section class="card s6" id="provCard">
+        <h3>รายจังหวัด
+          <span class="view-toggle" role="group" aria-label="รูปแบบการแสดงผล">
+            <button type="button" id="vChart" aria-pressed="true">แผนภูมิ</button>
+            <button type="button" id="vTable" aria-pressed="false">ตาราง</button>
+          </span>
+        </h3>
+        <p class="cap">เรียงจากมากไปน้อย · คลิกเพื่อกรองจังหวัด</p>
+        <div class="scroll" id="provBox"></div>
+      </section>
+
+      <section class="card s6" id="scCard">
+        <h3>อันดับจังหวัดตามจำนวนผู้พิการ</h3>
+        <p class="cap">เรียงจากมากไปน้อย · ตัวเลขในวงเล็บ = สัดส่วนของทั้งภาค · คลิกเพื่อกรองจังหวัด</p>
+        <div id="scatter" style="max-height:420px;overflow:auto"></div>
+      </section>
+
+      <section class="card s8" id="heatCard">
+        <h3>ลักษณะเด่นของแต่ละจังหวัด</h3>
+        <p class="cap">สีเข้ม = ประเภทนั้นมีสัดส่วนสูงเมื่อเทียบกับจังหวัดอื่นในภาคเดียวกัน (เทียบแยกแต่ละคอลัมน์) · ชี้เพื่อดูค่าจริง</p>
+        <div class="heatwrap"><div class="heat" id="heat"></div></div>
+      </section>
+
+      <section class="card s4" id="lineCard">
+        <h3>การกระจุกตัวของจังหวัด</h3>
+        <p class="cap">สัดส่วนสะสมของคนพิการเมื่อเรียงจังหวัดจากมากไปน้อย</p>
+        <div id="cumul"></div>
+      </section>
+
+      <p class="foot s12" id="footNote"></p>
+    </div>
+  </div>
+</aside>
+
+<script>
+/* =========================================================
+   1) รูปร่างภาค (พิกัดโดยประมาณ lon, lat)
+      แบ่งตามไฟล์ข้อมูล: เหนือ / ตะวันออกเฉียงเหนือ / กลางและตะวันออก / ใต้ (กรุงเทพฯ รวมอยู่ในภาคกลาง)
+      เส้นแบ่งที่ใช้ร่วมกันใช้จุดเดียวกัน จึงไม่มีช่องว่างระหว่างภาค
+   ========================================================= */
+/*GEO-START*/
+const GEO = (() => {
+  const J1=[99.15,17.4], J2=[101.1,17.65], J3=[99.97,13.3], J4=[101.75,14.3],
+        J5=[102.9,14.35], J6=[100.9,13.45], A0=[97.8,17.55], W1=[99.5,11.0], W2=[99.1,11.0],
+        T1=[98.4,15.4], T2=[101.6,15.4];
+  const rev = a => a.slice().reverse();
+  const chain = (...ps) => {
+    const out = [];
+    ps.forEach(p => p.forEach(pt => {
+      const l = out[out.length-1];
+      if (l && l[0]===pt[0] && l[1]===pt[1]) return;
+      out.push(pt);
+    }));
+    const f = out[0], l = out[out.length-1];
+    if (f[0]===l[0] && f[1]===l[1]) out.pop();
+    return out;
+  };
+  const B_NE_N  = [J2,[101.2,17.0],[101.4,16.5],[101.8,15.9],T2];
+  const B_NE_CE = [T2,[101.5,14.6],J4];
+  const B_N_CE  = [T1,[98.8,15.5],[99.15,15.6],[99.4,15.1],[99.8,15.05],[100.2,15.2],[100.7,15.35],[101.1,15.5],T2];
+  const B_NeE   = [J4,[102.4,14.2],J5];
+  const laosN = [[99.85,20.43],[100.1,20.35],[100.4,20.3],[100.6,19.9],[100.9,19.6],[101.2,19.4],[101.15,18.4],[101.0,17.9],J2];
+  const mmN   = [[99.85,20.43],[99.4,20.1],[98.9,19.75],[98.5,19.7],[98.1,19.8],[97.8,19.2],[97.35,18.5],[97.6,17.9],A0,
+                 [98.1,16.9],[98.6,16.5],[98.7,16.0],T1];
+  const outerNE = [J2,[101.35,17.8],[101.67,17.9],[102.1,17.95],[102.7,17.88],[103.1,18.2],[103.65,18.35],
+                   [104.2,17.95],[104.75,17.4],[104.7,16.6],[105.2,16.1],[105.6,15.6],[105.5,15.0],[105.2,14.4],
+                   [104.2,14.35],[103.2,14.35],J5];
+  const borderE = [J5,[102.6,14.0],[102.5,13.6],[102.35,12.4],[102.95,11.7],[102.9,11.55]];
+  const coastE  = [[102.9,11.55],[102.4,11.95],[101.9,12.5],[101.3,12.65],[100.95,13.2],J6];
+  const coastC  = [J6,[100.6,13.55],[100.3,13.5],J3];
+  const coastW  = [J3,[100.1,13.0],[99.95,12.7],[99.8,11.9],[99.6,11.4],W1];
+  const mmCE    = [T1,[98.45,14.7],[98.95,14.0],[99.2,13.4],[99.35,12.7],[99.45,12.0],[99.3,11.5],W2];
+  const coastS  = [W1,[99.2,10.4],[99.3,9.8],[99.6,9.4],[99.9,9.0],[100.1,8.5],[100.4,7.9],[100.55,7.3],
+                   [100.95,7.1],[101.35,6.9],[101.9,6.4],[102.1,6.25]];
+  const malay   = [[102.1,6.25],[101.9,6.1],[101.45,5.9],[101.1,5.65],[101.0,6.2],[100.65,6.45],[100.4,6.5],[100.15,6.5]];
+  const andaman = [[100.15,6.5],[99.85,6.9],[99.5,7.3],[99.2,7.8],[98.8,8.0],[98.35,7.8],[98.3,8.2],[98.45,9.2],[98.6,9.9]];
+  const mmS     = [[98.6,9.9],[98.75,10.5],[98.9,10.9],W2];
+  return {
+    north:        chain(mmN, B_N_CE, rev(B_NE_N), rev(laosN)),
+    northeast:    chain(outerNE, rev(B_NeE), rev(B_NE_CE), rev(B_NE_N)),
+    central_east: chain(mmCE, [W2,W1], rev(coastW), rev(coastC), rev(coastE), rev(borderE), rev(B_NeE), rev(B_NE_CE), rev(B_N_CE)),
+    south:        chain([W2], coastS, malay, andaman, mmS)
+  };
+})();
+/*GEO-END*/
+
+/* =========================================================
+   2) ข้อมูล — จากไฟล์ Cleaned_Data.csv (ชีต 05_ข้อมูลหลังคลีน)
+      rows[i].m / .f = จำนวนชาย / หญิง เรียงตามลำดับ types
+      ช่องว่าง 3 ช่องในไฟล์ถูกเติมจากสมการ ชาย + หญิง = รวม (ดู imputed)
+   ========================================================= */
+const DATA = {"types":["ทางการเห็น","ทางการได้ยินหรือสื่อความหมาย","ทางการเคลื่อนไหวหรือทางร่างกาย","ทางจิตใจหรือพฤติกรรม","ทางสติปัญญา","ทางการเรียนรู้","ทางออทิสติก","พิการซ้อน","ไม่ระบุประเภท"],"rows":[{"p":"กรุงเทพมหานคร","r":"ภาคกลางและภาคตะวันออก","m":[2035,5327,16975,3547,3104,355,1407,4988,384],"f":[1740,5875,13750,2683,2451,106,263,3567,277]},{"p":"กาญจนบุรี","r":"ภาคกลางและภาคตะวันออก","m":[684,1549,5122,627,748,13,69,710,153],"f":[613,1503,3842,409,611,4,17,594,121]},{"p":"จันทบุรี","r":"ภาคกลางและภาคตะวันออก","m":[556,889,3875,360,745,11,16,516,45],"f":[472,778,2775,213,551,8,1,418,42]},{"p":"ฉะเชิงเทรา","r":"ภาคกลางและภาคตะวันออก","m":[559,1026,4922,712,678,22,79,686,77],"f":[572,900,4017,484,632,23,18,543,69]},{"p":"ชลบุรี","r":"ภาคกลางและภาคตะวันออก","m":[689,1423,6244,527,1016,50,174,1160,265],"f":[656,1320,4522,339,759,13,26,900,212]},{"p":"ชัยนาท","r":"ภาคกลางและภาคตะวันออก","m":[634,1235,3702,432,400,16,30,305,161],"f":[660,1107,4042,289,359,13,5,270,183]},{"p":"ตราด","r":"ภาคกลางและภาคตะวันออก","m":[177,373,1288,114,191,37,19,153,24],"f":[139,289,796,52,194,17,5,131,20]},{"p":"นครนายก","r":"ภาคกลางและภาคตะวันออก","m":[401,703,2587,294,276,29,16,372,64],"f":[363,738,2245,181,204,6,9,301,42]},{"p":"นครปฐม","r":"ภาคกลางและภาคตะวันออก","m":[642,1047,5019,730,640,52,108,870,51],"f":[582,1068,4178,508,484,20,21,699,38]},{"p":"นนทบุรี","r":"ภาคกลางและภาคตะวันออก","m":[613,1236,4501,852,601,79,263,1845,104],"f":[546,1273,3600,716,484,22,59,1584,86]},{"p":"ปทุมธานี","r":"ภาคกลางและภาคตะวันออก","m":[496,1145,4469,693,705,74,231,978,239],"f":[426,1218,3699,626,540,19,42,794,178]},{"p":"ประจวบคีรีขันธ์","r":"ภาคกลางและภาคตะวันออก","m":[586,1093,2866,529,388,9,36,725,41],"f":[467,1074,2265,336,314,9,7,510,38]},{"p":"ปราจีนบุรี","r":"ภาคกลางและภาคตะวันออก","m":[536,939,3840,614,367,35,33,698,147],"f":[484,847,3035,463,323,17,13,575,110]},{"p":"พระนครศรีอยุธยา","r":"ภาคกลางและภาคตะวันออก","m":[811,1267,6011,809,811,69,97,805,168],"f":[691,1296,4958,562,694,10,13,628,152]},{"p":"เพชรบุรี","r":"ภาคกลางและภาคตะวันออก","m":[499,650,2591,283,483,14,50,446,198],"f":[431,595,2084,175,476,5,7,366,151]},{"p":"ระยอง","r":"ภาคกลางและภาคตะวันออก","m":[443,874,3599,168,365,24,52,676,97],"f":[378,824,2471,104,350,6,16,499,79]},{"p":"ราชบุรี","r":"ภาคกลางและภาคตะวันออก","m":[586,1311,6663,905,887,47,87,977,143],"f":[556,1240,6574,710,775,22,24,909,130]},{"p":"ลพบุรี","r":"ภาคกลางและภาคตะวันออก","m":[935,1600,5429,830,771,59,45,743,157],"f":[855,1397,4591,542,655,29,7,632,118]},{"p":"สมุทรปราการ","r":"ภาคกลางและภาคตะวันออก","m":[583,1315,6279,688,846,81,395,1218,88],"f":[573,1281,5339,485,610,27,59,882,77]},{"p":"สมุทรสงคราม","r":"ภาคกลางและภาคตะวันออก","m":[94,275,1065,227,165,7,22,164,288],"f":[103,310,909,156,143,2,4,142,330]},{"p":"สมุทรสาคร","r":"ภาคกลางและภาคตะวันออก","m":[230,1019,2493,454,494,158,107,506,69],"f":[217,933,1987,301,410,38,15,340,47]},{"p":"สระแก้ว","r":"ภาคกลางและภาคตะวันออก","m":[777,1275,4893,887,485,88,40,686,113],"f":[735,1039,3588,588,432,37,8,526,96]},{"p":"สระบุรี","r":"ภาคกลางและภาคตะวันออก","m":[526,1559,5337,477,538,27,53,814,19],"f":[453,1410,5015,304,519,12,7,614,22]},{"p":"สิงห์บุรี","r":"ภาคกลางและภาคตะวันออก","m":[201,400,1781,313,221,3,7,220,64],"f":[222,445,1644,258,177,4,5,191,83]},{"p":"สุพรรณบุรี","r":"ภาคกลางและภาคตะวันออก","m":[725,1369,5779,623,639,33,62,867,35],"f":[709,1260,4597,376,549,15,14,616,60]},{"p":"อ่างทอง","r":"ภาคกลางและภาคตะวันออก","m":[344,599,2427,365,212,23,27,488,79],"f":[284,610,2226,228,217,15,4,372,50]},{"p":"กาฬสินธุ์","r":"ภาคตะวันออกเฉียงเหนือ","m":[2246,2366,5946,1552,888,133,27,822,436],"f":[2813,2105,5111,699,743,92,16,559,393]},{"p":"ขอนแก่น","r":"ภาคตะวันออกเฉียงเหนือ","m":[3185,4944,11789,2626,2099,444,141,1735,370],"f":[4122,4341,9392,1305,1713,138,29,1445,316]},{"p":"ชัยภูมิ","r":"ภาคตะวันออกเฉียงเหนือ","m":[2372,5954,10689,1631,1349,29,43,714,212],"f":[2870,6074,12386,928,1101,16,16,648,255]},{"p":"นครพนม","r":"ภาคตะวันออกเฉียงเหนือ","m":[1051,1921,5528,1837,841,69,56,715,65],"f":[1260,1829,4480,945,785,36,17,654,73]},{"p":"นครราชสีมา","r":"ภาคตะวันออกเฉียงเหนือ","m":[4747,4501,16954,2637,2944,133,149,1897,194],"f":[5912,4060,13443,1787,2504,66,43,1596,174]},{"p":"บึงกาฬ","r":"ภาคตะวันออกเฉียงเหนือ","m":[729,938,2922,678,389,25,16,356,61],"f":[762,751,2172,343,310,10,5,317,33]},{"p":"บุรีรัมย์","r":"ภาคตะวันออกเฉียงเหนือ","m":[3164,4742,13936,2068,1478,92,88,1943,291],"f":[3717,4752,14676,1362,1346,42,28,1876,279]},{"p":"มหาสารคาม","r":"ภาคตะวันออกเฉียงเหนือ","m":[1916,2354,6226,1639,1058,59,37,661,60],"f":[2634,2258,5162,830,839,20,7,559,65]},{"p":"มุกดาหาร","r":"ภาคตะวันออกเฉียงเหนือ","m":[633,1535,2134,1014,348,24,38,265,79],"f":[547,1463,1367,435,304,5,15,172,45]},{"p":"ยโสธร","r":"ภาคตะวันออกเฉียงเหนือ","m":[1793,1409,3804,1007,501,20,19,997,68],"f":[2455,1151,3368,533,397,8,3,1484,58]},{"p":"ร้อยเอ็ด","r":"ภาคตะวันออกเฉียงเหนือ","m":[4097,3530,10276,2413,1245,54,52,1217,419],"f":[5926,3131,8792,1218,1148,28,14,1051,327]},{"p":"เลย","r":"ภาคตะวันออกเฉียงเหนือ","m":[1061,3919,4886,1225,848,32,25,413,727],"f":[1126,3388,4035,620,680,24,12,259,656]},{"p":"ศรีสะเกษ","r":"ภาคตะวันออกเฉียงเหนือ","m":[2398,4171,11862,2582,1896,74,75,1124,190],"f":[2698,3713,10463,1735,1585,28,22,881,128]},{"p":"สกลนคร","r":"ภาคตะวันออกเฉียงเหนือ","m":[2327,3260,8372,1961,1136,42,45,1169,79],"f":[2560,2844,6429,986,953,31,13,972,84]},{"p":"สุรินทร์","r":"ภาคตะวันออกเฉียงเหนือ","m":[5108,3692,12805,1813,1401,51,62,2063,274],"f":[7584,3517,13137,1281,1212,41,24,2553,327]},{"p":"หนองคาย","r":"ภาคตะวันออกเฉียงเหนือ","m":[907,1383,3501,583,456,49,31,563,84],"f":[891,1282,2413,310,407,30,11,449,66]},{"p":"หนองบัวลำภู","r":"ภาคตะวันออกเฉียงเหนือ","m":[930,1366,3986,706,645,27,18,398,19],"f":[1006,1161,3758,385,501,15,6,330,20]},{"p":"อำนาจเจริญ","r":"ภาคตะวันออกเฉียงเหนือ","m":[691,1260,2810,602,443,10,27,194,244],"f":[769,1164,2052,380,457,8,14,204,390]},{"p":"อุดรธานี","r":"ภาคตะวันออกเฉียงเหนือ","m":[2136,2706,8829,1290,1444,96,102,960,544],"f":[2151,2382,6497,658,1185,75,37,740,449]},{"p":"อุบลราชธานี","r":"ภาคตะวันออกเฉียงเหนือ","m":[3553,5743,13019,2458,2380,61,81,972,362],"f":[4198,5105,10166,1457,1913,34,23,799,279]},{"p":"กระบี่","r":"ภาคใต้","m":[294,561,2146,276,270,14,6,625,129],"f":[231,462,1453,150,225,8,5,444,76]},{"p":"ชุมพร","r":"ภาคใต้","m":[498,704,2788,342,470,16,31,562,70],"f":[393,720,1847,206,368,12,5,405,53]},{"p":"ตรัง","r":"ภาคใต้","m":[585,1006,4334,478,591,53,57,681,375],"f":[524,880,3591,319,507,29,19,564,245]},{"p":"นครศรีธรรมราช","r":"ภาคใต้","m":[1818,3575,11606,1904,1438,207,79,2832,103],"f":[1734,3749,10394,1121,1323,68,21,2606,79]},{"p":"นราธิวาส","r":"ภาคใต้","m":[644,1253,4389,835,677,21,13,725,132],"f":[610,1077,3115,392,601,14,7,593,129]},{"p":"ปัตตานี","r":"ภาคใต้","m":[602,894,3442,782,491,22,23,1056,154],"f":[604,793,2750,395,484,10,2,837,120]},{"p":"พังงา","r":"ภาคใต้","m":[260,630,1728,258,250,32,28,338,84],"f":[236,555,1381,162,171,12,4,269,49]},{"p":"พัทลุง","r":"ภาคใต้","m":[527,1169,3832,351,378,24,28,612,51],"f":[420,1208,3023,218,338,18,11,487,41]},{"p":"ภูเก็ต","r":"ภาคใต้","m":[151,372,1525,118,178,2,37,360,32],"f":[99,355,1151,89,162,7,8,288,24]},{"p":"ยะลา","r":"ภาคใต้","m":[450,831,2592,564,551,6,30,525,59],"f":[381,753,1712,251,465,9,8,383,66]},{"p":"ระนอง","r":"ภาคใต้","m":[136,235,866,118,141,7,19,211,26],"f":[98,166,537,66,120,5,1,152,25]},{"p":"สงขลา","r":"ภาคใต้","m":[873,2442,6535,900,1035,79,95,1566,355],"f":[786,2369,4818,589,906,45,37,1240,287]},{"p":"สตูล","r":"ภาคใต้","m":[264,667,1867,273,353,24,17,382,49],"f":[234,594,1458,141,304,13,5,312,28]},{"p":"สุราษฎร์ธานี","r":"ภาคใต้","m":[701,1398,4426,650,894,46,92,679,401],"f":[503,1350,3335,379,666,33,20,597,334]},{"p":"กำแพงเพชร","r":"ภาคเหนือ","m":[1219,1764,8471,788,905,33,35,826,80],"f":[1225,1448,8300,458,770,20,9,704,56]},{"p":"เชียงราย","r":"ภาคเหนือ","m":[1523,5225,8578,985,1324,38,95,864,495],"f":[1341,4249,7466,692,1107,17,15,657,480]},{"p":"เชียงใหม่","r":"ภาคเหนือ","m":[1628,5982,11230,1402,1554,142,179,1603,170],"f":[1438,4955,9521,1072,1216,68,41,1236,128]},{"p":"ตาก","r":"ภาคเหนือ","m":[649,1598,3480,569,521,89,53,437,86],"f":[612,1326,2917,440,430,41,15,357,70]},{"p":"นครสวรรค์","r":"ภาคเหนือ","m":[1569,2124,8841,1160,1074,44,57,1004,131],"f":[1437,1948,7532,755,962,20,13,852,104]},{"p":"น่าน","r":"ภาคเหนือ","m":[1172,2890,4422,528,793,22,46,526,59],"f":[1029,2224,3875,400,673,12,16,383,42]},{"p":"พะเยา","r":"ภาคเหนือ","m":[964,3050,5871,730,618,44,43,705,178],"f":[999,2594,6142,518,521,26,6,589,155]},{"p":"พิจิตร","r":"ภาคเหนือ","m":[812,1681,5601,680,526,33,27,832,164],"f":[775,1463,5666,495,414,23,8,701,113]},{"p":"พิษณุโลก","r":"ภาคเหนือ","m":[1202,2080,8006,869,883,37,48,1002,256],"f":[1200,1739,7366,507,752,17,14,750,197]},{"p":"เพชรบูรณ์","r":"ภาคเหนือ","m":[1606,1806,7837,1395,1187,31,47,817,120],"f":[1493,1405,6331,809,1038,19,19,641,97]},{"p":"แพร่","r":"ภาคเหนือ","m":[664,2043,7383,673,722,55,49,269,111],"f":[550,1691,7964,457,631,23,11,242,107]},{"p":"แม่ฮ่องสอน","r":"ภาคเหนือ","m":[365,827,1612,212,261,27,19,354,23],"f":[357,626,1172,151,203,16,6,284,19]},{"p":"ลำปาง","r":"ภาคเหนือ","m":[1047,4533,7724,1020,1270,231,88,456,88],"f":[876,3596,7141,714,1027,114,28,356,65]},{"p":"ลำพูน","r":"ภาคเหนือ","m":[877,2205,4842,777,466,70,37,315,263],"f":[809,1777,4832,602,369,20,9,248,204]},{"p":"สุโขทัย","r":"ภาคเหนือ","m":[1517,1725,5766,814,567,20,19,748,59],"f":[1566,1551,5702,541,515,16,7,609,55]},{"p":"อุตรดิตถ์","r":"ภาคเหนือ","m":[1236,1707,4998,472,567,70,42,710,75],"f":[1572,1466,5474,341,493,44,13,581,70]},{"p":"อุทัยธานี","r":"ภาคเหนือ","m":[696,710,3254,360,373,15,26,384,29],"f":[561,639,2771,214,342,13,8,287,33]}],"unspec":{"m":[126,156,573,131,136,0,0,90,474],"f":[119,129,426,63,109,0,1,77,555]},"imputed":[{"p":"มุกดาหาร","col":"การเคลื่อนไหว (ชาย)"},{"p":"นครศรีธรรมราช","col":"การเห็น (รวม)"},{"p":"พะเยา","col":"สติปัญญา (หญิง)"}]};
+
+const REGIONS_META = [
+  {id:'north',        name:'ภาคเหนือ',                label:'ภาคเหนือ',             en:'Northern',            delay:0,   anchor:[99.5,18.1]},
+  {id:'northeast',    name:'ภาคตะวันออกเฉียงเหนือ',  label:'ภาคอีสาน',            en:'Northeastern',        delay:90,  anchor:[103.0,16.3]},
+  {id:'central_east', name:'ภาคกลางและภาคตะวันออก',  label:'ภาคกลางและตะวันออก',  en:'Central & Eastern',   delay:180, anchor:[101.8,12.8]},
+  {id:'south',        name:'ภาคใต้',                  label:'ภาคใต้',               en:'Southern',            delay:420, anchor:[99.5,8.9]}
+];
+
+/* =========================================================
+   3) เรนเดอร์ 3 มิติด้วย canvas + แดชบอร์ด (ไม่ใช้ไลบรารีภายนอก)
+   ========================================================= */
+(() => {
+  'use strict';
+  const D2R = Math.PI / 180;
+  const COS_LAT = Math.cos(13.5 * D2R);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const $ = id => document.getElementById(id);
+  const nf = new Intl.NumberFormat('th-TH');
+  const fmt = n => nf.format(Math.round(n));
+  const fmtPct = x => (isFinite(x) ? x : 0).toFixed(1) + '%';
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  const HEIGHT = 0.34;
+  const PERSP  = 38;
+  const SELECT_PITCH = 56 * D2R;
+  const PANEL_W = 480;
+  const TYPES = DATA.types;
+
+  const hex = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+  const mix = (a, b, t) => [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t];
+  const css = (c, k = 1) => `rgb(${Math.min(255,Math.round(c[0]*k))},${Math.min(255,Math.round(c[1]*k))},${Math.min(255,Math.round(c[2]*k))})`;
+
+  /* แถบสีลำดับ (ความเข้มเพิ่มตามค่า) — ใช้ลงสีแผนที่ */
+  const RAMP = [hex('#fff1b8'), hex('#f9a03f'), hex('#c8281e')];
+  const ramp = t => { t = clamp(t, 0, 1); return t < .5 ? mix(RAMP[0], RAMP[1], t*2) : mix(RAMP[1], RAMP[2], (t-.5)*2); };
+  const PAL = {
+    dTop: hex('#eef2f8'), dSide: hex('#d5deea'),
+    sTop: hex('#1c5cab'), sSide: hex('#134483'),
+    wall: hex('#0f2a5c'), accent: hex('#1c5cab')
+  };
+
+  /* ---------- ข้อมูล → ตัวเลข ---------- */
+  const state = {region:null, province:'', type:-1, gender:'all', mapMetric:'total', provView:'chart'};
+  const val = (a, g = state.gender) => g === 'male' ? a.m : g === 'female' ? a.f : a.m + a.f;
+  function agg(rows, type, withUnspec) {
+    let m = 0, f = 0;
+    const add = r => {
+      if (type < 0) { for (let i = 0; i < r.m.length; i++) { m += r.m[i]; f += r.f[i]; } }
+      else { m += r.m[type]; f += r.f[type]; }
+    };
+    rows.forEach(add);
+    if (withUnspec) add(DATA.unspec);
+    return {m, f};
+  }
+  const rowsOf = name => DATA.rows.filter(r => r.r === name);
+
+  /* ---------- สร้างภาค ---------- */
+  const REGIONS = REGIONS_META.map(m => {
+    let poly = GEO[m.id].map(([lo, la]) => [(lo - 101) * COS_LAT, la - 13.5]);
+    let area = 0;
+    for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i+1) % poly.length]; area += a[0]*b[1] - b[0]*a[1]; }
+    if (area < 0) poly = poly.reverse();
+    const xs = poly.map(p => p[0]), ys = poly.map(p => p[1]);
+    const bbox = {x0:Math.min(...xs), x1:Math.max(...xs), y0:Math.min(...ys), y1:Math.max(...ys)};
+    const provinces = rowsOf(m.name).map(r => r.p).sort((a,b) => a.localeCompare(b, 'th'));
+    return Object.assign({labelDy:0, extra:0, maxZoom:3.6}, m, {
+      poly, bbox, provinces,
+      cx:(bbox.x0+bbox.x1)/2, cy:(bbox.y0+bbox.y1)/2,
+      ax:(m.anchor[0]-101)*COS_LAT, ay:m.anchor[1]-13.5,
+      h:0.001, hov:0, sel:0, dim:0, hit:null,
+      v:0, t:0, tT:0
+    });
+  });
+  const byId = id => REGIONS.find(r => r.id === id);
+  const CE = byId('central_east');
+
+  /* ---------- สถานะกล้อง ---------- */
+  const canvas = $('map');
+  const ctx = canvas.getContext('2d');
+  let W = 0, H = 0, DPR = 1, BASE = 60;
+  let selected = null, hover = null, drawOrder = REGIONS;
+  const view = {yaw:-10*D2R, pitch:52*D2R, zoom:1};
+  const HOME = {fx:0.4, fy:-0.4};
+  const cam = {yaw:view.yaw, pitch:view.pitch, zoom:1, fx:HOME.fx, fy:HOME.fy, cx:0, cy:0};
+  const tgt = Object.assign({}, cam);
+  const T0 = performance.now() + 150;
+
+  function project(x, y, z) {
+    x -= cam.fx; y -= cam.fy;
+    const cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+    const x1 = x*cy - y*sy, y1 = x*sy + y*cy;
+    const ca = Math.cos(cam.pitch), sa = Math.sin(cam.pitch);
+    const v = y1*ca + z*sa, w = z*ca - y1*sa;
+    const p = 1 / (1 - w / PERSP), S = BASE * cam.zoom * p;
+    return [cam.cx + x1*S, cam.cy - v*S, w];
+  }
+
+  function freeArea(sel) {
+    const top = 72, bottom = 76;
+    if (W >= 960) {
+      if (sel) return {x:0, y:top, w:W - PANEL_W - 32, h:H - top - bottom + 40};
+      const x = W < 1300 ? 336 : 0;
+      return {x, y:top, w:W - x, h:H - top - bottom};
+    }
+    return sel ? {x:0, y:60, w:W, h:H*0.42 - 60} : {x:0, y:60, w:W, h:H*0.5 - 60};
+  }
+  function applyFraming(snap) {
+    const fa = freeArea(!!selected);
+    tgt.cx = fa.x + fa.w/2; tgt.cy = fa.y + fa.h/2;
+    if (!selected) {
+      tgt.fx = HOME.fx; tgt.fy = HOME.fy; tgt.zoom = view.zoom; tgt.yaw = view.yaw; tgt.pitch = view.pitch;
+    } else {
+      const b = selected.bbox;
+      tgt.fx = (b.x0+b.x1)/2; tgt.fy = (b.y0+b.y1)/2;
+      const zw = fa.w*0.68 / ((b.x1-b.x0) * BASE);
+      const zh = fa.h*0.66 / ((b.y1-b.y0) * Math.cos(SELECT_PITCH) * BASE + 0.9*BASE);
+      tgt.zoom = clamp(Math.min(zw, zh), 1, selected.maxZoom);
+      tgt.pitch = SELECT_PITCH; tgt.yaw = -6*D2R;
+    }
+    if (snap) Object.assign(cam, tgt);
+  }
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    const r = canvas.getBoundingClientRect();
+    W = r.width; H = r.height;
+    canvas.width = Math.round(W*DPR); canvas.height = Math.round(H*DPR);
+    const fa = freeArea(false);
+    BASE = Math.min(fa.w*0.92/9.2, fa.h*0.96/(15.6*Math.cos(52*D2R)+1.2));
+    applyFraming(cam.cx === 0);
+  }
+
+  /* ---------- สีของแต่ละภาค (choropleth ตามค่าที่เลือก) ---------- */
+  const REGION_HUE = { north: hex('#4f9d3a'), central_east: hex('#e0a21b'), northeast: hex('#f07a1a'), south: hex('#1f6fb5') };
+  function regionColors(r) {
+    const base = hex('#ffffff');
+    const hue = REGION_HUE[r.id];
+    let top = base;
+    if (hue) {
+      top = mix(top, hue, Math.max(r.hov * 0.8, r.sel));
+    }
+    top = mix(top, PAL.dTop, r.dim * 0.85);
+    let side = mix(top, PAL.wall, hue ? 0.22 : 0.10);
+    if (!hue) side = mix(top, hex('#c9d3e2'), 0.8);
+    return {top, side};
+  }
+
+  /* ---------- วาด ---------- */
+  function rr(x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x+r, y); ctx.arcTo(x+w, y, x+w, y+h, r); ctx.arcTo(x+w, y+h, x, y+h, r);
+    ctx.arcTo(x, y+h, x, y, r); ctx.arcTo(x, y, x+w, y, r); ctx.closePath();
+  }
+  const pathPts = pts => { ctx.beginPath(); pts.forEach((p,i) => i ? ctx.lineTo(p[0],p[1]) : ctx.moveTo(p[0],p[1])); ctx.closePath(); };
+  const FONT = '"Prompt","Noto Sans Thai",Sarabun,Tahoma,sans-serif';
+
+  function draw() {
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const order = REGIONS.slice().sort((a,b) =>
+      project(a.cx,a.cy,0)[2] - project(b.cx,b.cy,0)[2]);
+    drawOrder = order;
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(30,58,110,.30)'; ctx.shadowBlur = 30*DPR; ctx.shadowOffsetY = 16*DPR;
+    ctx.fillStyle = '#c9d6ea';
+    for (const r of order) { pathPts(r.poly.map(p => project(p[0],p[1],0))); ctx.fill(); }
+    ctx.restore();
+
+    const cyaw = Math.cos(cam.yaw), syaw = Math.sin(cam.yaw);
+    for (const r of order) {
+      const col = regionColors(r), n = r.poly.length;
+      const top = r.poly.map(p => project(p[0], p[1], r.h));
+      const bot = r.poly.map(p => project(p[0], p[1], 0));
+      const walls = [];
+      for (let i = 0; i < n; i++) {
+        const j = (i+1) % n, a = r.poly[i], b = r.poly[j];
+        const dx = b[0]-a[0], dy = b[1]-a[1], len = Math.hypot(dx, dy) || 1;
+        const nx = dy/len, ny = -dx/len;
+        const n1x = nx*cyaw - ny*syaw, n1y = nx*syaw + ny*cyaw;
+        if (n1y > -0.001) continue;
+        const k = clamp(0.92 + 0.12*(-n1y) - 0.16*n1x, 0.7, 1.05);
+        walls.push({q:[top[i], top[j], bot[j], bot[i]], k, d:(top[i][2]+top[j][2])/2});
+      }
+      walls.sort((a,b) => a.d - b.d);
+      for (const w of walls) {
+        pathPts(w.q);
+        const c = css(col.side, w.k);
+        ctx.fillStyle = c; ctx.fill();
+        ctx.lineWidth = .8; ctx.strokeStyle = c; ctx.lineJoin = 'round'; ctx.stroke();
+      }
+      pathPts(top);
+      ctx.fillStyle = css(col.top); ctx.fill();
+      ctx.lineWidth = 1.6; ctx.strokeStyle = (r.hov > .05 || r.sel > .05) ? '#ffffff' : '#b9c6da'; ctx.lineJoin = 'round'; ctx.stroke();
+      r.hit = {top, walls:walls.map(w => w.q)};
+    }
+
+    // ป้ายชื่อภาค + ค่า
+    for (const r of order) {
+      const p = project(r.ax, r.ay, r.h);
+      const sel = r.sel > .5, alpha = 1 - (W < 960 ? 0.95 : 0.55)*r.dim;
+      const sub = state.mapMetric === 'avg' && r.provinces.length > 1 ? 'เฉลี่ย ' + fmt(r.v) : fmt(r.v) + ' คน';
+      const small = W < 960;
+      ctx.globalAlpha = alpha;
+      ctx.font = `600 ${small ? 11 : 13}px ${FONT}`; const w1 = ctx.measureText(r.label).width;
+      ctx.font = `400 11px ${FONT}`; const w2 = small ? 0 : ctx.measureText(sub).width;
+      const bw = Math.max(w1, w2) + (small ? 14 : 22), bh = small ? 24 : 40, bx = p[0]-bw/2, by = p[1]-bh-6 + r.labelDy * (small ? 1.1 : 1);
+      ctx.save();
+      ctx.shadowColor = 'rgba(15,23,42,.16)'; ctx.shadowBlur = 10*DPR; ctx.shadowOffsetY = 3*DPR;
+      rr(bx, by, bw, bh, 11); ctx.fillStyle = '#ffffff'; ctx.fill();
+      ctx.restore();
+      ctx.beginPath(); ctx.moveTo(p[0]-5, by+bh-.5); ctx.lineTo(p[0], by+bh+5); ctx.lineTo(p[0]+5, by+bh-.5);
+      ctx.fillStyle = '#ffffff'; ctx.fill();
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+      ctx.font = `600 ${small ? 11 : 13}px ${FONT}`; ctx.fillStyle = sel ? '#1c5cab' : '#0f172a'; ctx.fillText(r.label, p[0], by + (small ? 16 : 17));
+      if (!small) { ctx.font = `400 11px ${FONT}`; ctx.fillStyle = '#64748b'; ctx.fillText(sub, p[0], by+32); }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  /* ---------- อนิเมชัน ---------- */
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min((now - last)/1000, .05); last = now;
+    const k = reduceMotion ? 1 : 1 - Math.exp(-dt*7);
+    for (const key of ['yaw','pitch','zoom','fx','fy','cx','cy']) cam[key] += (tgt[key]-cam[key]) * k;
+    for (const r of REGIONS) {
+      const started = now >= T0 + r.delay;
+      const base = HEIGHT + r.extra;
+      const hovOn = (hover === r && !selected) ? 1 : 0;
+      let selOn = selected === r ? 1 : 0, dimOn = selected && selected !== r ? 1 : 0;
+      let hT = started ? base : 0.001;
+      if (started) {
+        if (selected) hT = selected === r ? base + (r.extra ? 0.08 : 0.24) : base * 0.5;
+        else if (hovOn) hT = base + 0.2;
+      }
+      r.h   += (hT - r.h) * (reduceMotion ? 1 : 1 - Math.exp(-dt*(started ? 9 : 5)));
+      r.hov += (hovOn - r.hov) * k;
+      r.sel += (selOn - r.sel) * k;
+      r.dim += (dimOn - r.dim) * k;
+      r.t   += (r.tT - r.t) * k;
+    }
+    draw();
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- การเลือกด้วยเมาส์ ---------- */
+  function inPoly(x, y, pts) {
+    let inside = false;
+    for (let i = 0, j = pts.length-1; i < pts.length; j = i++) {
+      const xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+      if ((yi > y) !== (yj > y) && x < (xj-xi)*(y-yi)/(yj-yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+  function pick(x, y) {
+    for (let i = drawOrder.length-1; i >= 0; i--) {
+      const r = drawOrder[i];
+      if (r.hit && (inPoly(x, y, r.hit.top) || r.hit.walls.some(q => inPoly(x, y, q)))) return r;
+    }
+    return null;
+  }
+
+  /* ---------- tooltip ---------- */
+  const tip = $('tip');
+  function showTip(html, cx, cy) {
+    if (!html) { tip.classList.remove('on'); return; }
+    tip.innerHTML = html;
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    tip.style.left = clamp(cx + 16, 8, window.innerWidth - tw - 8) + 'px';
+    tip.style.top  = clamp(cy + 18, 8, window.innerHeight - th - 8) + 'px';
+    tip.classList.add('on');
+  }
+  const tipHTML = (title, lines) => `<b>${esc(title)}</b>` + lines.map(l => `<span>${l}</span>`).join('');
+  function regionTip(r) {
+    const a = agg(rowsOf(r.name), state.type), t = val(a);
+    return tipHTML(r.name, [
+      `${r.provinces.length} จังหวัด`,
+      `คนพิการ ${fmt(t)} คน` + (state.gender !== 'all' ? ' (' + (state.gender === 'male' ? 'ชาย' : 'หญิง') + ')' : ''),
+      `<i class="sw m"></i>ชาย ${fmt(a.m)} · <i class="sw f"></i>หญิง ${fmt(a.f)}`
+    ]);
+  }
+
+  let drag = null;
+  const local = e => { const b = canvas.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
+  canvas.addEventListener('pointerdown', e => {
+    canvas.setPointerCapture(e.pointerId);
+    drag = {x:e.clientX, y:e.clientY, sx:e.clientX, sy:e.clientY, moved:false};
+  });
+  canvas.addEventListener('pointermove', e => {
+    if (drag) {
+      if (Math.hypot(e.clientX-drag.sx, e.clientY-drag.sy) > 5) drag.moved = true;
+      if (drag.moved && !selected) {
+        view.yaw   = clamp(view.yaw + (e.clientX-drag.x)*0.25*D2R, -40*D2R, 40*D2R);
+        view.pitch = clamp(view.pitch - (e.clientY-drag.y)*0.2*D2R, 25*D2R, 68*D2R);
+        applyFraming(); canvas.classList.add('dragging'); showTip(null);
+      }
+      drag.x = e.clientX; drag.y = e.clientY;
+      if (drag.moved) return;
+    }
+    const [x, y] = local(e);
+    hover = pick(x, y);
+    canvas.classList.toggle('hovering', !!hover);
+    showTip(hover ? regionTip(hover) : null, e.clientX, e.clientY);
+  });
+  canvas.addEventListener('pointerup', e => {
+    const wasClick = drag && !drag.moved;
+    drag = null; canvas.classList.remove('dragging');
+    if (!wasClick) return;
+    const [x, y] = local(e);
+    const r = pick(x, y);
+    if (r) { if (r !== selected) select(r); } else if (selected) deselect();
+  });
+  canvas.addEventListener('pointerleave', () => { if (!drag) { hover = null; showTip(null); canvas.classList.remove('hovering'); } });
+  canvas.addEventListener('wheel', e => {
+    if (selected) return;
+    e.preventDefault();
+    view.zoom = clamp(view.zoom * Math.exp(-e.deltaY*0.001), 0.7, 2.2);
+    applyFraming();
+  }, {passive:false});
+
+  /* =========================================================
+     4) แดชบอร์ด: คำนวณ + วาดกราฟ
+     ========================================================= */
+  const genderName = {male:'ชาย', female:'หญิง', all:'ทั้งหมด'};
+  const emit = () => document.dispatchEvent(new CustomEvent('dashboard:change', {detail:Object.assign({}, state)}));
+  const withUn = () => !selected;   // รวมผู้ที่ไม่ระบุจังหวัดเฉพาะมุมมองทั้งประเทศ
+
+  function scopeRows() {
+    if (state.province) return DATA.rows.filter(r => r.p === state.province);
+    if (selected) return rowsOf(selected.name);
+    return DATA.rows;
+  }
+
+  /* แถบซ้อน ชาย+หญิง (ปลายมน 4px ชิดเส้นฐาน คั่น 2px) */
+  function barRow(o) {
+    const sm = state.gender !== 'female', sf = state.gender !== 'male';
+    const vm = sm ? o.m : 0, vf = sf ? o.f : 0, t = vm + vf;
+    const k = o.max ? t / o.max : 0;
+    const segs = (vm ? `<i class="m" style="flex:${vm}"></i>` : '') + (vf ? `<i class="f" style="flex:${vf}"></i>` : '');
+    const lines = [`<i class="sw m"></i>ชาย ${fmt(o.m)} (${fmtPct(pct(o.m, o.m+o.f))})`, `<i class="sw f"></i>หญิง ${fmt(o.f)} (${fmtPct(pct(o.f, o.m+o.f))})`, `รวม ${fmt(o.m+o.f)}`]
+      .concat(o.extraTip ? [o.extraTip] : []);
+    const tt = esc(tipHTML(o.name, lines));
+    return `<li><button type="button" class="brow${o.compact ? ' compact' : ''}${o.on ? ' on' : ''}" data-${o.attr}="${esc(o.key)}" data-tt="${tt}">
+      <span class="nm">${esc(o.name)}</span>
+      <span class="barline"><span class="bar" style="--k:${k.toFixed(4)}">${segs}</span><span class="v">${fmt(t)}</span></span>
+    </button></li>`;
+  }
+  const pct = (a, b) => b ? a / b * 100 : 0;
+
+  function sbarHTML(m, f, label) {
+    return `<i class="m" style="flex:${m}"></i><i class="f" style="flex:${f}"></i>`;
+  }
+  function splitHTML(m, f) {
+    const t = m + f;
+    return `<li><span><i class="m"></i>ชาย</span><b>${fmt(m)}</b><em>${fmtPct(pct(m,t))}</em></li>
+            <li><span><i class="f"></i>หญิง</span><b>${fmt(f)}</b><em>${fmtPct(pct(f,t))}</em></li>`;
+  }
+  const typeLabel = () => state.type < 0 ? 'ทุกประเภท' : TYPES[state.type];
+  const filterLabel = () => [state.type >= 0 ? 'ประเภท' + TYPES[state.type] : '', state.gender !== 'all' ? genderName[state.gender] : ''].filter(Boolean).join(' · ');
+
+  /* ----- ภาพรวมประเทศ + ค่าลงสีแผนที่ ----- */
+  function updateMap() {
+    for (const r of REGIONS) {
+      const a = agg(rowsOf(r.name), state.type), t = val(a);
+      r.v = state.mapMetric === 'avg' ? t / Math.max(1, r.provinces.length) : t;
+    }
+    const vs = REGIONS.map(r => r.v), lo = Math.min(...vs), hi = Math.max(...vs);
+    REGIONS.forEach(r => { r.tT = hi > lo ? (r.v - lo) / (hi - lo) : 0.5; });
+    $('rampMin').textContent = fmt(lo); $('rampMax').textContent = fmt(hi);
+  }
+
+  function renderOverview() {
+    const a = agg(DATA.rows, state.type, true), t = val(a);
+    $('ovTotal').innerHTML = `${fmt(t)}<small>คน</small>`;
+    $('ovSbar').innerHTML = sbarHTML(a.m, a.f);
+    $('ovSbar').setAttribute('aria-label', `ชาย ${fmt(a.m)} หญิง ${fmt(a.f)}`);
+    $('ovSplit').innerHTML = splitHTML(a.m, a.f);
+    const un = agg([], state.type, true);
+    $('ovNote').textContent = `รวมผู้ที่ไม่ระบุจังหวัด ${fmt(val(un))} คน` + (filterLabel() ? ` · กรอง: ${filterLabel()}` : '');
+    $('ovTitle').textContent = 'คนพิการทั้งประเทศ';
+
+    const rows = REGIONS.map(r => ({r, a:agg(rowsOf(r.name), state.type)}));
+    rows.sort((x,y) => val(y.a) - val(x.a));
+    const max = Math.max(...rows.map(x => val(x.a)));
+    $('regionBars').innerHTML = rows.map(x => barRow({
+      key:x.r.id, name:x.r.label, m:x.a.m, f:x.a.f, max, attr:'region', compact:false,
+      extraTip:`${x.r.provinces.length} จังหวัด · เฉลี่ย ${fmt(val(x.a) / x.r.provinces.length)} คนต่อจังหวัด`
+    })).join('');
+  }
+
+  /* ----- หน้ารายละเอียดรายภาค ----- */
+  const SHORT = ['การมองเห็น','การได้ยิน/สื่อความหมาย','การเคลื่อนไหว/ร่างกาย','จิตใจ/พฤติกรรม','สติปัญญา','การเรียนรู้','ออทิสติก','พิการซ้อน','ไม่ระบุประเภท'];
+  const HEAD  = ['เห็น','ได้ยิน','เคลื่อนไหว','จิตใจ','สติปัญญา','เรียนรู้','ออทิสติก','ซ้อน','ไม่ระบุ'];
+  const INK2 = '#475569', MUTED = '#7a8ba1', GRID = '#e4e9f1', NAVY = '#1c5cab';
+  const cw = el => Math.max(280, Math.floor(el.clientWidth || 520));
+  const svg = (w, h, inner) => `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img">${inner}</svg>`;
+  const niceCeil = v => { if (v <= 0) return 1; const p = Math.pow(10, Math.floor(Math.log10(v))), n = v / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p; };
+  const kfmt = n => n >= 10000 ? Math.round(n/1000) + 'K' : fmt(n);
+  const ttAttr = (title, lines) => esc(tipHTML(title, lines));
+  // แท่งแนวนอนปลายมน 4px ชิดเส้นฐาน
+  function hbar(xb, w, y, h, dir, fill) {
+    if (w <= 0) return '';
+    const r = Math.min(4, w, h/2);
+    const d = dir < 0
+      ? `M${xb},${y}H${xb-w+r}A${r},${r} 0 0 0 ${xb-w},${y+r}V${y+h-r}A${r},${r} 0 0 0 ${xb-w+r},${y+h}H${xb}Z`
+      : `M${xb},${y}H${xb+w-r}A${r},${r} 0 0 1 ${xb+w},${y+r}V${y+h-r}A${r},${r} 0 0 1 ${xb+w-r},${y+h}H${xb}Z`;
+    return `<path d="${d}" fill="${fill}"/>`;
+  }
+
+  /* 1) แท่งสองฝั่ง ชาย–หญิง ตามประเภท */
+  function renderButterfly(rows) {
+    const el = $('bfly'), W = cw(el), rowH = 60, top = 30, H = top + TYPES.length * rowH;
+    const per = TYPES.map((n, i) => ({i, n, a:agg(rows, i)})).sort((x,y) => (y.a.m+y.a.f) - (x.a.m+x.a.f));
+    const max = Math.max(1, ...per.map(x => Math.max(x.a.m, x.a.f)));
+    const mid = W/2, half = mid - 72;
+    let s = `<line x1="${mid}" x2="${mid}" y1="${top-8}" y2="${H}" stroke="${GRID}"/>
+      <text x="${mid-10}" y="14" text-anchor="end" font-size="14" fill="${INK2}">ชาย</text>
+      <text x="${mid+10}" y="14" font-size="14" fill="${INK2}">หญิง</text>`;
+    const all = per.reduce((t, x) => t + x.a.m + x.a.f, 0);
+    per.forEach((x, k) => {
+      const y = top + k*rowH, wm = x.a.m / max * half, wf = x.a.f / max * half;
+      const on = state.type === x.i, dim = state.type >= 0 && !on;
+      const tt = ttAttr(x.n, [`<i class="sw m"></i>ชาย ${fmt(x.a.m)} (${fmtPct(pct(x.a.m, x.a.m+x.a.f))})`, `<i class="sw f"></i>หญิง ${fmt(x.a.f)} (${fmtPct(pct(x.a.f, x.a.m+x.a.f))})`, `รวม ${fmt(x.a.m+x.a.f)} · ${fmtPct(pct(x.a.m+x.a.f, all))} ของทั้งหมด`]);
+      s += `<g data-type="${x.i}" data-tt="${tt}" style="cursor:pointer" opacity="${dim ? .4 : 1}">
+        <rect class="hv" x="0" y="${y}" width="${W}" height="${rowH-3}" rx="6"/>
+        <text x="${mid}" y="${y+17}" text-anchor="middle" font-size="14.5" fill="${on ? NAVY : INK2}" font-weight="${on ? 600 : 400}">${esc(x.n)}</text>
+        ${hbar(mid-1, Math.max(wm, x.a.m ? 2 : 0), y+25, 22, -1, 'var(--male)')}
+        ${hbar(mid+1, Math.max(wf, x.a.f ? 2 : 0), y+25, 22, 1, 'var(--female)')}
+        <text x="${mid-1-wm-7}" y="${y+42}" text-anchor="end" font-size="14" font-weight="600" fill="#0f172a">${fmt(x.a.m)}</text>
+        <text x="${mid+1+wf+7}" y="${y+42}" font-size="14" font-weight="600" fill="#0f172a">${fmt(x.a.f)}</text></g>`;
+    });
+    el.innerHTML = svg(W, H, s);
+  }
+
+  /* 2) ส่วนต่างสัดส่วนเทียบทั้งประเทศ (จุดเปอร์เซ็นต์) */
+  function renderDiverging(rows) {
+    const el = $('dvg'), sc = agg(rows, -1), tot = val(sc);
+    if (!tot) { el.innerHTML = ''; return; }
+    const COLS = ['#1c5cab', '#14a38b', '#e0a21b', '#8a63d2'], OTHER = '#b6c2d4';
+    const per = TYPES.map((n, i) => { const a = agg(rows, i); return {i, n:val(a), m:a.m, f:a.f, pc:pct(val(a), tot)}; }).sort((x,y) => y.n - x.n);
+    const top = per.slice(0, 4), rest = per.slice(4);
+    const groups = top.map((x, k) => ({name:SHORT[x.i], n:x.n, m:x.m, f:x.f, pc:x.pc, color:COLS[k], type:x.i}))
+      .concat([{name:'ประเภทอื่นๆ รวม', n:rest.reduce((a,x) => a + x.n, 0), m:rest.reduce((a,x) => a + x.m, 0), f:rest.reduce((a,x) => a + x.f, 0), pc:rest.reduce((a,x) => a + x.pc, 0), color:OTHER, type:-1}]);
+    // ปัดเป็น 100 ช่องด้วยวิธีเศษมากสุด
+    const raw = groups.map(g => g.pc), cnt = raw.map(Math.floor);
+    let left = 100 - cnt.reduce((a,b) => a + b, 0);
+    raw.map((v, i) => [v - cnt[i], i]).sort((a,b) => b[0] - a[0]).slice(0, left).forEach(([, i]) => cnt[i]++);
+    const cells = [];
+    groups.forEach((g, gi) => { for (let k = 0; k < cnt[gi]; k++) cells.push(gi); });
+    const tipOf = g => ttAttr(g.name, [`${fmt(g.n)} คน · ชาย ${fmt(g.m)} · หญิง ${fmt(g.f)}`, `${fmtPct(g.pc)} ของผู้พิการในภาคนี้`]);
+    const grid = cells.map(gi => `<i data-tt="${tipOf(groups[gi])}" ${groups[gi].type >= 0 ? `data-type="${groups[gi].type}"` : ''} style="background:${groups[gi].color}"></i>`).join('');
+    const leg = groups.map(g => `<div class="wf-row" ${g.type >= 0 ? `data-type="${g.type}"` : ''} data-tt="${tipOf(g)}">
+        <b style="background:${g.color}"></b><span class="wf-n">${esc(g.name)}<small>${fmt(g.n)} คน</small></span>
+        <span class="wf-v"><strong>${g.pc.toFixed(0)}</strong> <small>คน ใน 100</small></span></div>`).join('');
+    el.innerHTML = `<div class="wf"><div class="wf-grid" role="img" aria-label="ผู้พิการ 100 คน แบ่งตามประเภท">${grid}</div><div class="wf-leg">${leg}</div></div>`;
+  }
+
+  /* 3) จุดกระจาย: จำนวน × สัดส่วนหญิง */
+  function renderScatter(regRows) {
+    const el = $('scatter');
+    const pts = regRows.map(x => ({p:x.p, t:val(x.a), m:x.a.m, f:x.a.f})).filter(d => d.t > 0).sort((a,b) => b.t - a.t);
+    if (!pts.length) { el.innerHTML = ''; return; }
+    const tot = pts.reduce((a,d) => a + d.t, 0), max = pts[0].t;
+    const W = cw(el), RH = 26, m = {l:150, r:118, t:6, b:6}, H = m.t + m.b + pts.length * RH;
+    const X = v => v / max * (W - m.l - m.r);
+    let s = '';
+    pts.forEach((d, i) => {
+      const y = m.t + i * RH, on = state.province === d.p;
+      const tt = ttAttr(d.p, [`อันดับ ${i+1} จาก ${pts.length}`, `${fmt(d.t)} คน · ${fmtPct(pct(d.t, tot))} ของที่แสดง`, `<i class="sw m"></i>ชาย ${fmt(d.m)} · <i class="sw f"></i>หญิง ${fmt(d.f)}`]);
+      s += `<g data-prov="${esc(d.p)}" data-tt="${tt}" style="cursor:pointer">
+        <rect x="0" y="${y}" width="${W}" height="${RH}" fill="${on ? '#eef3fb' : 'transparent'}"/>
+        <text x="22" y="${y + RH/2 + 4}" text-anchor="end" font-size="11" fill="${MUTED}">${i+1}</text>
+        <text x="30" y="${y + RH/2 + 4}" font-size="12" fill="${on ? '#0f172a' : INK2}" ${on ? 'font-weight="600"' : ''}>${esc(d.p)}</text>
+        <rect x="${m.l}" y="${y + 5}" width="${Math.max(2, X(d.t))}" height="${RH - 10}" rx="3" fill="${on ? '#0f2a5c' : NAVY}"/>
+        <text x="${m.l + X(d.t) + 6}" y="${y + RH/2 + 4}" font-size="11.5" fill="${INK2}">${fmt(d.t)} <tspan fill="${MUTED}">(${fmtPct(pct(d.t, tot))})</tspan></text></g>`;
+    });
+    el.innerHTML = svg(W, H, s);
+  }
+
+  /* 4) ตารางสี: จังหวัด × ประเภท */
+  function renderHeat(rows) {
+    const list = rows.map(r => ({r, tot:val(agg([r], -1))})).sort((a,b) => b.tot - a.tot);
+    const share = list.map(x => TYPES.map((_, i) => pct(val(agg([x.r], i)), x.tot)));
+    const colMax = TYPES.map((_, i) => Math.max(0.0001, ...share.map(r => r[i])));
+    let h = `<div class="hh"></div>` + HEAD.map(n => `<div class="hh">${n}</div>`).join('');
+    list.forEach((x, k) => {
+      h += `<div class="rl${state.province === x.r.p ? ' on' : ''}" data-prov="${esc(x.r.p)}">${esc(x.r.p)}</div>`;
+      TYPES.forEach((n, i) => {
+        const c = ramp(share[k][i] / colMax[i]);
+        const tt = ttAttr(x.r.p, [n, `${fmtPct(share[k][i])} ของจังหวัดนี้`, `${fmt(val(agg([x.r], i)))} คน`]);
+        h += `<div class="c" style="background:${css(c)}" data-prov="${esc(x.r.p)}" data-tt="${tt}"></div>`;
+      });
+    });
+    $('heat').style.gridTemplateColumns = `118px repeat(${TYPES.length}, minmax(0,1fr))`;
+    $('heat').innerHTML = h;
+  }
+
+  /* 5) เส้นสะสม: กี่จังหวัดแรกครอบคลุมกี่ % ของภาค */
+  function renderCumul(regRows) {
+    const el = $('cumul'), W = cw(el), H = 250, m = {l:40, r:14, t:14, b:34};
+    const vals = regRows.map(x => val(x.a)).sort((a,b) => b - a), tot = vals.reduce((a,b) => a + b, 0), n = vals.length;
+    if (!tot || n < 2) { el.innerHTML = ''; return; }
+    const names = regRows.slice().sort((a,b) => val(b.a) - val(a.a)).map(x => x.p);
+    let c = 0; const cum = vals.map(v => (c += v) / tot * 100);
+    const X = k => m.l + (k - 1) / (n - 1) * (W - m.l - m.r), Y = v => m.t + (100 - v) / 100 * (H - m.t - m.b);
+    let s = '';
+    [0,25,50,75,100].forEach(v => s += `<line x1="${m.l}" x2="${W-m.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="${GRID}"/><text x="${m.l-8}" y="${Y(v)+4}" text-anchor="end" font-size="11" fill="${MUTED}">${v}%</text>`);
+    const step = n > 12 ? Math.ceil(n / 6) : 1;
+    for (let k = 1; k <= n; k += step) s += `<text x="${X(k)}" y="${H-m.b+18}" text-anchor="middle" font-size="11" fill="${MUTED}">${k}</text>`;
+    s += `<text x="${(m.l + W - m.r)/2}" y="${H-2}" text-anchor="middle" font-size="11" fill="${MUTED}">จำนวนจังหวัด (เรียงจากมากไปน้อย)</text>`;
+    const line = cum.map((v, i) => `${i ? 'L' : 'M'}${X(i+1)},${Y(v)}`).join('');
+    s += `<path d="${line}L${X(n)},${Y(0)}L${X(1)},${Y(0)}Z" fill="${NAVY}" opacity=".10"/>
+          <path d="${line}" fill="none" stroke="${NAVY}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+    const half = cum.findIndex(v => v >= 50) + 1;
+    s += `<circle cx="${X(half)}" cy="${Y(cum[half-1])}" r="5" fill="${NAVY}" stroke="#fff" stroke-width="2"/>
+          <text x="${X(half) + 10}" y="${Y(cum[half-1]) + 18}" font-size="11.5" fill="#0f172a" font-weight="500">${half} จังหวัดแรก = ${cum[half-1].toFixed(0)}%</text>`;
+    const colW = (W - m.l - m.r) / (n - 1);
+    cum.forEach((v, i) => {
+      const tt = ttAttr(`อันดับ ${i+1} · ${names[i]}`, [`${fmt(vals[i])} คน`, `สะสม ${v.toFixed(1)}% ของภาค`]);
+      s += `<rect class="hv" x="${X(i+1) - colW/2}" y="${m.t}" width="${colW}" height="${H - m.t - m.b}" data-tt="${tt}"/>`;
+    });
+    el.innerHTML = svg(W, H, s);
+  }
+
+  /* ----- รวมทั้งหน้า ----- */
+  function renderPanel() {
+    if (!selected) return;
+    const rows = scopeRows();
+    const a = agg(rows, state.type), t = val(a);
+    const natT = val(agg(DATA.rows, state.type, true));
+    $('pName').textContent = selected.name;
+    $('pSub').textContent = `${selected.provinces.length} จังหวัด · ${selected.en} Thailand`;
+
+    const fl = filterLabel();
+    $('k1l').textContent = 'คนพิการ' + (state.province ? ' · ' + state.province : '') + (fl ? ' · ' + fl : '');
+    $('k1v').innerHTML = `${fmt(t)}<small>คน</small>`;
+    $('gSbar').innerHTML = sbarHTML(a.m, a.f);
+    $('gSbar').setAttribute('aria-label', `ชาย ${fmt(a.m)} หญิง ${fmt(a.f)}`);
+    $('gCap').textContent = `ชาย ${fmt(a.m)} (${fmtPct(pct(a.m, a.m+a.f))}) · หญิง ${fmt(a.f)} (${fmtPct(pct(a.f, a.m+a.f))})`;
+    $('k2l').textContent = 'สัดส่วนของทั้งประเทศ';
+    $('k2v').textContent = fmtPct(pct(t, natT));
+    $('k2s').textContent = `จาก ${fmt(natT)} คน`;
+
+    const perType = TYPES.map((n, i) => ({i, n, a:agg(rows, i)}));
+    if (state.type < 0) {
+      const top = perType.slice().sort((x,y) => val(y.a) - val(x.a))[0];
+      $('k3l').textContent = 'ประเภทที่พบมากที่สุด';
+      $('k3v').textContent = top.n; $('k3v').className = 'v txt';
+      $('k3s').textContent = `${fmt(val(top.a))} คน · ${fmtPct(pct(val(top.a), t))}`;
+    } else {
+      const all = val(agg(rows, -1));
+      $('k3l').textContent = 'ประเภทนี้ในพื้นที่';
+      $('k3v').textContent = fmtPct(pct(t, all)); $('k3v').className = 'v num';
+      $('k3s').textContent = `ของคนพิการทั้งหมด ${fmt(all)} คน`;
+    }
+
+    const regRows = rowsOf(selected.name).map(r => ({p:r.p, a:agg([r], state.type)}));
+    const ranked = regRows.slice().sort((x,y) => val(y.a) - val(x.a));
+    if (state.province) {
+      const idx = ranked.findIndex(x => x.p === state.province);
+      $('k4l').textContent = 'อันดับในภาค';
+      $('k4v').innerHTML = `${idx + 1}<small>จาก ${ranked.length} จังหวัด</small>`; $('k4v').className = 'v num';
+      $('k4s').textContent = state.province;
+    } else if (ranked.length > 1) {
+      $('k4l').textContent = 'จังหวัดที่มีมากที่สุด';
+      $('k4v').textContent = ranked[0].p; $('k4v').className = 'v txt';
+      $('k4s').textContent = `${fmt(val(ranked[0].a))} คน · ${fmtPct(pct(val(ranked[0].a), t))} ของภาค`;
+    } else {
+      $('k4l').textContent = 'จำนวนจังหวัด';
+      $('k4v').innerHTML = `1<small>จังหวัด</small>`; $('k4v').className = 'v num';
+      $('k4s').textContent = 'กรุงเทพมหานคร';
+    }
+
+    renderButterfly(rows);
+    renderDiverging(rows);
+    const multi = selected.provinces.length > 1;
+    ['provCard','scCard','heatCard','lineCard'].forEach(id => $(id).style.display = multi ? '' : 'none');
+    $('provField').style.display = multi ? '' : 'none';
+    if (multi) {
+      renderProvinces(ranked);
+      renderScatter(regRows);
+      renderHeat(rowsOf(selected.name));
+      renderCumul(ranked);
+    }
+    $('footNote').textContent = `ที่มา: ไฟล์ Cleaned_Data.csv (ชีต 05_ข้อมูลหลังคลีน) · ${DATA.imputed.length} ช่องที่ว่างถูกเติมจากสมการ ชาย + หญิง = รวม (${DATA.imputed.map(x => x.p + ' ' + x.col).join(', ')}) · ข้อมูลเป็นภาพรวม ณ ช่วงเวลาเดียว จึงไม่มีกราฟแนวโน้มตามเวลา`;
+  }
+
+  function renderProvinces(regRows) {
+    const regTotal = regRows.reduce((s, x) => s + val(x.a), 0);
+    const max = Math.max(...regRows.map(x => val(x.a)));
+    if (state.provView === 'chart') {
+      $('provBox').innerHTML = `<ul class="bars${state.province ? ' has-on' : ''}">` + regRows.map(x => barRow({
+        key:x.p, name:x.p, m:x.a.m, f:x.a.f, max, attr:'prov', compact:true, on:state.province === x.p,
+        extraTip:`${fmtPct(pct(val(x.a), regTotal))} ของภาค`
+      })).join('') + '</ul>';
+    } else {
+      $('provBox').innerHTML = `<table><thead><tr><th>จังหวัด</th><th>ชาย</th><th>หญิง</th><th>รวม</th><th>% ภาค</th></tr></thead><tbody>` +
+        regRows.map(x => `<tr data-prov="${esc(x.p)}" class="${state.province === x.p ? 'on' : ''}"><td>${esc(x.p)}</td><td>${fmt(x.a.m)}</td><td>${fmt(x.a.f)}</td><td>${fmt(x.a.m + x.a.f)}</td><td>${fmtPct(pct(x.a.m + x.a.f, regTotal))}</td></tr>`).join('') +
+        '</tbody></table>';
+    }
+  }
+
+  function renderAll() { updateMap(); renderOverview(); renderPanel(); emit(); }
+
+  /* ---------- ตัวกรองและการโต้ตอบ ---------- */
+  $('fType').innerHTML = '<option value="-1">ทุกประเภท</option>' + TYPES.map((t, i) => `<option value="${i}">${esc(t)}</option>`).join('');
+
+  const chipsEl = $('chips');
+  REGIONS.forEach(r => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.textContent = r.label; b.dataset.id = r.id;
+    b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', () => select(r));
+    chipsEl.appendChild(b);
+    const t2 = b.cloneNode(true); t2.addEventListener('click', () => select(r)); $('rtabs').appendChild(t2);
+  });
+
+  function placeFilters(toPanel) {
+    $(toPanel ? 'filterSlotPanel' : 'filterSlotOv').appendChild($('filtersBlock'));
+  }
+  function fillProvSelect() {
+    $('fProv').innerHTML = `<option value="">ทุกจังหวัดใน${esc(selected.name)}</option>` + selected.provinces.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+    $('fProv').value = state.province;
+  }
+
+  let expanded = false;
+  function setExpanded(v) {
+    expanded = v; document.body.classList.toggle('expanded', v);
+    $('expandTxt').textContent = v ? 'ย่อกลับ' : 'ดูเต็มจอ';
+    $('expandBtn').setAttribute('aria-pressed', String(v));
+    renderPanel(); setTimeout(renderPanel, 280); setTimeout(renderPanel, 620);
+  }
+  $('expandBtn').addEventListener('click', () => setExpanded(!expanded));
+
+  function select(r) {
+    const changed = selected !== r;
+    selected = r; hover = null; showTip(null);
+    if (changed) { state.region = r.id; state.province = ''; }
+    placeFilters(true); fillProvSelect();
+    document.body.classList.add('has-selection');
+    document.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.id === r.id)));
+    $('panelBody').scrollTop = 0;
+    applyFraming(); renderAll();
+  }
+  function deselect() {
+    selected = null; state.region = null; state.province = '';
+    if (expanded) { expanded = false; document.body.classList.remove('expanded'); $('expandTxt').textContent = 'ดูเต็มจอ'; }
+    document.body.classList.remove('has-selection');
+    document.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', 'false'));
+    placeFilters(false);
+    applyFraming(); renderAll();
+  }
+
+  $('backBtn').addEventListener('click', deselect);
+  $('resetBtn').addEventListener('click', () => {
+    view.yaw = -10*D2R; view.pitch = 52*D2R; view.zoom = 1;
+    if (selected) deselect(); else applyFraming();
+  });
+  window.addEventListener('keydown', e => { if (e.key === 'Escape' && selected) { expanded ? setExpanded(false) : deselect(); } });
+
+  $('fProv').addEventListener('change', e => { state.province = e.target.value; renderAll(); });
+  $('fType').addEventListener('change', e => { state.type = Number(e.target.value); renderAll(); });
+  document.querySelectorAll('input[name="gender"]').forEach(i => i.addEventListener('change', e => { state.gender = e.target.value; renderAll(); }));
+  document.querySelectorAll('input[name="mm"]').forEach(i => i.addEventListener('change', e => { state.mapMetric = e.target.value; renderAll(); }));
+  $('vChart').addEventListener('click', () => { state.provView = 'chart'; $('vChart').setAttribute('aria-pressed','true'); $('vTable').setAttribute('aria-pressed','false'); renderPanel(); });
+  $('vTable').addEventListener('click', () => { state.provView = 'table'; $('vTable').setAttribute('aria-pressed','true'); $('vChart').setAttribute('aria-pressed','false'); renderPanel(); });
+
+  // คลิกในกราฟ = กรอง
+  document.addEventListener('click', e => {
+    const t = e.target.closest('[data-type]');
+    if (t && $('panel').contains(t)) {
+      const i = Number(t.dataset.type); state.type = state.type === i ? -1 : i; $('fType').value = String(state.type); renderAll(); return;
+    }
+    const p = e.target.closest('[data-prov]');
+    if (p && $('panel').contains(p)) {
+      state.province = state.province === p.dataset.prov ? '' : p.dataset.prov; $('fProv').value = state.province; renderAll(); return;
+    }
+    const g = e.target.closest('[data-region]');
+    if (g && $('regionBars').contains(g)) select(byId(g.dataset.region));
+  });
+
+  // tooltip ของกราฟ (hover / focus)
+  function chartTip(e) {
+    const el = e.target.closest && e.target.closest('[data-tt]');
+    if (!el) { if (!drag) showTip(null); return; }
+    const r = el.getBoundingClientRect();
+    showTip(el.dataset.tt, e.type === 'focusin' ? r.left + r.width/2 : e.clientX, e.type === 'focusin' ? r.top : e.clientY);
+  }
+  ['mousemove','focusin'].forEach(ev => { $('panel').addEventListener(ev, chartTip); $('overview').addEventListener(ev, chartTip); });
+  ['mouseleave','focusout'].forEach(ev => { $('panel').addEventListener(ev, () => showTip(null)); $('overview').addEventListener(ev, () => showTip(null)); });
+
+  /* ---------- เริ่มทำงาน ---------- */
+  let rt; window.addEventListener('resize', () => { resize(); clearTimeout(rt); rt = setTimeout(() => selected && renderPanel(), 120); });
+  resize();
+  renderAll();
+  REGIONS.forEach(r => { r.t = r.tT; });
+  requestAnimationFrame(frame);
+
+  /* จุดเชื่อมสำหรับต่อยอด: ฟังเหตุการณ์ 'dashboard:change' เพื่อรับค่าตัวกรองปัจจุบัน */
+  
+  /* =========================================================
+     ส่งออกข้อมูล: CSV / Excel (.xlsx) / PDF (พิมพ์)
+     ขอบเขต = ภาค/จังหวัดที่เลือกอยู่ (ไม่เลือก = ทั้งประเทศ)
+     ========================================================= */
+  function exportTable() {
+    const scope = state.province ? state.province : selected ? selected.name : 'ทั้งประเทศ';
+    const rows = scopeRows();
+    const head = ['จังหวัด', 'ภาค'];
+    TYPES.forEach(n => { head.push(n + ' (ชาย)', n + ' (หญิง)', n + ' (รวม)'); });
+    head.push('รวมทุกประเภท (ชาย)', 'รวมทุกประเภท (หญิง)', 'รวมทุกประเภท (รวม)');
+    const line = (name, region, m, f) => {
+      const out = [name, region];
+      let tm = 0, tf = 0;
+      m.forEach((v, i) => { out.push(v, f[i], v + f[i]); tm += v; tf += f[i]; });
+      out.push(tm, tf, tm + tf);
+      return out;
+    };
+    const body = rows.slice().sort((a,b) => a.r.localeCompare(b.r, 'th') || a.p.localeCompare(b.p, 'th')).map(r => line(r.p, r.r, r.m, r.f));
+    const sumM = TYPES.map((_, i) => rows.reduce((t, r) => t + r.m[i], 0));
+    const sumF = TYPES.map((_, i) => rows.reduce((t, r) => t + r.f[i], 0));
+    if (!selected && !state.province) {
+      body.push(line('ไม่ระบุจังหวัด', '-', DATA.unspec.m, DATA.unspec.f));
+      DATA.unspec.m.forEach((v, i) => { sumM[i] += v; sumF[i] += DATA.unspec.f[i]; });
+    }
+    body.push(line('รวมทั้งหมด', scope, sumM, sumF));
+    return {scope, head, body};
+  }
+  const fileStamp = () => { const d = new Date(); return d.getFullYear() + String(d.getMonth()+1).padStart(2,'0') + String(d.getDate()).padStart(2,'0'); };
+  function download(blob, name) {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }
+  function toast(msg) { const t = $('exportToast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2600); }
+
+  function exportCSV() {
+    const {scope, head, body} = exportTable();
+    const q = v => { const t = String(v); return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+    const text = '﻿' + [head, ...body].map(r => r.map(q).join(',')).join('\r\n');
+    download(new Blob([text], {type:'text/csv;charset=utf-8'}), `disability_${scope}_${fileStamp()}.csv`);
+    toast('ส่งออก CSV แล้ว · ' + scope);
+  }
+
+  /* สร้างไฟล์ .xlsx เองโดยไม่ใช้ไลบรารี (zip แบบไม่บีบอัด) */
+  const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  const crc32 = u => { let c = 0xFFFFFFFF; for (let i = 0; i < u.length; i++) c = CRC[(c ^ u[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  function zipStore(files) {
+    const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+    const u16 = v => [v & 255, v >>> 8 & 255], u32 = v => [v & 255, v >>> 8 & 255, v >>> 16 & 255, v >>> 24 & 255];
+    files.forEach(f => {
+      const name = enc.encode(f.name), data = enc.encode(f.data), crc = crc32(data);
+      const hdr = new Uint8Array([0x50,0x4b,3,4, ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0)]);
+      parts.push(hdr, name, data);
+      central.push(new Uint8Array([0x50,0x4b,1,2, ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21), ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(off)]), name);
+      off += hdr.length + name.length + data.length;
+    });
+    const cLen = central.reduce((t, a) => t + a.length, 0);
+    const end = new Uint8Array([0x50,0x4b,5,6, 0,0, 0,0, ...u16(files.length), ...u16(files.length), ...u32(cLen), ...u32(off), 0,0]);
+    return new Blob([...parts, ...central, end], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  }
+  function exportXLSX() {
+    const {scope, head, body} = exportTable();
+    const X = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const col = n => { let s = ''; n++; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+    const cell = (v, r, c, st) => typeof v === 'number'
+      ? `<c r="${col(c)}${r}" s="${st}"><v>${v}</v></c>`
+      : `<c r="${col(c)}${r}" s="${st}" t="inlineStr"><is><t>${X(v)}</t></is></c>`;
+    const last = body.length - 1;
+    let sheet = `<row r="1">${head.map((h, c) => cell(h, 1, c, 1)).join('')}</row>`;
+    body.forEach((row, i) => { sheet += `<row r="${i+2}">${row.map((v, c) => cell(v, i+2, c, typeof v === 'number' ? (i === last ? 4 : 2) : (i === last ? 3 : 0))).join('')}</row>`; });
+    const sheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane xSplit="2" ySplit="1" topLeftCell="C2" activePane="bottomRight" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="2" width="26" customWidth="1"/><col min="3" max="${head.length}" width="16" customWidth="1"/></cols><sheetData>${sheet}</sheetData></worksheet>`;
+    const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0"/></numFmts><fonts count="2"><font><sz val="11"/><name val="Tahoma"/></font><font><b/><sz val="11"/><name val="Tahoma"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDCE8F8"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="5"><xf fontId="0" fillId="0" borderId="0"/><xf fontId="1" fillId="2" borderId="0" applyFont="1" applyFill="1"><alignment wrapText="1" vertical="center"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="0" applyNumberFormat="1"/><xf fontId="1" fillId="0" borderId="0" applyFont="1"/><xf numFmtId="164" fontId="1" fillId="0" borderId="0" applyFont="1" applyNumberFormat="1"/></cellXfs></styleSheet>`;
+    const blob = zipStore([
+      {name:'[Content_Types].xml', data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'},
+      {name:'_rels/.rels', data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+      {name:'xl/workbook.xml', data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="ข้อมูลคนพิการ" sheetId="1" r:id="rId1"/></sheets></workbook>'},
+      {name:'xl/_rels/workbook.xml.rels', data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
+      {name:'xl/styles.xml', data:styles},
+      {name:'xl/worksheets/sheet1.xml', data:sheetXml}
+    ]);
+    download(blob, `disability_${scope}_${fileStamp()}.xlsx`);
+    toast('ส่งออก Excel แล้ว · ' + scope);
+  }
+
+  /* PDF: วาดหน้าจอเป็นภาพ แล้วเขียนไฟล์ PDF เอง (ไม่ใช้หน้าต่างพิมพ์ จึงใช้ได้แม้ในหน้าต่างพรีวิวที่บล็อก print) */
+  function buildPDF(pages, pw, ph, mg) {   // pages = [{jpeg:Uint8Array, w, h}]
+    const enc = new TextEncoder(), chunks = [], offs = []; let len = 0;
+    const push = d => { const u = typeof d === 'string' ? enc.encode(d) : d; chunks.push(u); len += u.length; };
+    const obj = (n, body) => { offs[n] = len; push(`${n} 0 obj\n`); body.forEach(push); push('\nendobj\n'); };
+    push('%PDF-1.4\n');
+    const n = pages.length;
+    obj(1, ['<< /Type /Catalog /Pages 2 0 R >>']);
+    obj(2, [`<< /Type /Pages /Count ${n} /Kids [${pages.map((_, i) => `${3 + i*3} 0 R`).join(' ')}] >>`]);
+    pages.forEach((pg, i) => {
+      const pId = 3 + i*3, cId = pId + 1, iId = pId + 2, ih = ph - 2*mg, sc = Math.min((pw - 2*mg) / pg.w, ih / pg.h), iw = pg.w * sc, dh = pg.h * sc, ix = (pw - iw) / 2;
+      obj(pId, [`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pw} ${ph}] /Resources << /XObject << /Im0 ${iId} 0 R >> >> /Contents ${cId} 0 R >>`]);
+      const cs = `q ${iw.toFixed(2)} 0 0 ${dh.toFixed(2)} ${ix.toFixed(2)} ${(ph - mg - dh).toFixed(2)} cm /Im0 Do Q`;
+      obj(cId, [`<< /Length ${cs.length} >>\nstream\n${cs}\nendstream`]);
+      obj(iId, [`<< /Type /XObject /Subtype /Image /Width ${pg.w} /Height ${pg.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${pg.jpeg.length} >>\nstream\n`, pg.jpeg, '\nendstream']);
+    });
+    const total = 3 + n*3, xref = len;
+    push(`xref\n0 ${total}\n0000000000 65535 f \n` + offs.slice(1).map(o => String(o).padStart(10, '0') + ' 00000 n \n').join(''));
+    push(`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
+    return new Blob(chunks, {type:'application/pdf'});
+  }
+  async function exportPDF() {
+    const wasCompact = selected && !expanded;
+    try {
+      toast('กำลังสร้างไฟล์ PDF…');
+      if (wasCompact) { setExpanded(true); await new Promise(r => setTimeout(r, 900)); }
+      const body = document.body, bs = getComputedStyle(body);
+      const hide = '.export,.expand-btn,.back,#rtabs,.rtabs,button.ghost-btn,.hint';
+      let inner, W, H;
+      let breaks = [];
+      if (selected) {
+        const src = $('panel'), clone = src.cloneNode(true);
+        W = Math.ceil(src.clientWidth);
+        clone.removeAttribute('id'); clone.querySelectorAll('[id]').forEach(e => e.removeAttribute('id'));
+        clone.querySelectorAll(hide + ',.toolbar').forEach(e => e.remove());
+        clone.style.cssText += ';position:static!important;transform:none!important;visibility:visible!important;opacity:1!important;width:' + W + 'px!important;height:auto!important;max-height:none!important;overflow:visible!important;box-shadow:none!important;border-radius:0!important;left:auto;top:auto;right:auto;bottom:auto;display:block!important';
+        clone.querySelectorAll('.panel-body,.scroll,.dash,.heatwrap,[style*="overflow"]').forEach(e => { e.style.overflow = 'visible'; e.style.maxHeight = 'none'; e.style.height = 'auto'; });
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'position:absolute;left:-99999px;top:0;width:' + W + 'px';
+        wrap.appendChild(clone); document.body.appendChild(wrap);
+        await new Promise(r => setTimeout(r, 60));
+        const y0 = wrap.getBoundingClientRect().top;
+        H = Math.ceil(wrap.getBoundingClientRect().height) + 8;
+        breaks = [...clone.querySelectorAll('.dash > *')].map(e => Math.round(e.getBoundingClientRect().top - y0));
+        inner = new XMLSerializer().serializeToString(clone);
+        wrap.remove();
+      } else {
+        // หน้าแรก: จับทั้งหน้าจอ (แผนที่ + การ์ดภาพรวม)
+        W = window.innerWidth; H = window.innerHeight;
+        const mapImg = canvas.toDataURL('image/png');
+        const parts = [document.querySelector('.topbar'), document.querySelector('.stage')].map(n => {
+          const c = n.cloneNode(true);
+          c.querySelectorAll(hide).forEach(e => e.remove());
+          c.querySelectorAll('canvas').forEach(cv => { const im = document.createElement('img'); im.setAttribute('src', mapImg); im.setAttribute('style', 'width:100%;height:100%;display:block'); cv.replaceWith(im); });
+          return new XMLSerializer().serializeToString(c);
+        });
+        inner = parts.join('');
+      }
+      let css = '';
+      for (const ss of document.styleSheets) { try { css += [...ss.cssRules].map(r => r.cssText).join('\n'); } catch (e) {} }
+      css = css.replace(/:root/g, '.pdfroot').replace(/\bbody\b(?=[.\s:,{>\[])/g, '.pdfroot').replace(/@media print\s*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
+      const cls = 'pdfroot' + (body.classList.contains('expanded') ? ' expanded' : '') + (selected ? ' has-selection' : '');
+      const html = `<div xmlns="http://www.w3.org/1999/xhtml" class="${cls}" style="width:${W}px;height:${H}px;background:${selected ? '#f2f5fa' : '#f4f7fc'};color:${bs.color};font-family:${bs.fontFamily.replace(/"/g, "'")};font-size:${bs.fontSize};line-height:${bs.lineHeight};box-sizing:border-box;position:relative;overflow:hidden"><style><![CDATA[${css}]]></style>${inner}</div>`;
+      const wFull = W, hFull = H;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${wFull}" height="${hFull}"><foreignObject width="100%" height="100%">${html}</foreignObject></svg>`;
+      const img = new Image();
+      await new Promise((ok, no) => { img.onload = ok; img.onerror = () => no(new Error('render')); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+      const SC = Math.min(2, 14000 / hFull), cv = document.createElement('canvas');
+      cv.width = Math.round(wFull * SC); cv.height = Math.round(hFull * SC);
+      const c2 = cv.getContext('2d'); c2.fillStyle = '#fff'; c2.fillRect(0, 0, cv.width, cv.height); c2.drawImage(img, 0, 0, cv.width, cv.height);
+      const PW = 842, PH = 595, MG = 22, pageCss = (hFull * 0 + wFull) * (PH - 2*MG) / (PW - 2*MG), pages = [];
+      let start = 0;
+      while (start < hFull - 2) {
+        let end = Math.min(hFull, start + pageCss);
+        if (end < hFull - 2) {
+          const cand = breaks.filter(t => t > start + 40 && t <= end + 1);
+          const fit = cand.length ? Math.max(...cand) : start;
+          const next = breaks.filter(t => t > start + 40 && t > end + 1).sort((a, b) => a - b)[0] ?? hFull;
+          // แถวที่สูงกว่าหน้า: ย่อทั้งแถวให้พอดีหน้า ดีกว่าตัดกลางการ์ด
+          end = (fit - start < pageCss * 0.45 && next - start <= pageCss * 1.7) ? next : (cand.length ? fit : end);
+        } else end = hFull;
+        const y = Math.round(start * SC), h = Math.max(1, Math.round((end - start) * SC)), pc = document.createElement('canvas');
+        pc.width = cv.width; pc.height = h;
+        const pcx = pc.getContext('2d'); pcx.fillStyle = '#fff'; pcx.fillRect(0, 0, pc.width, h); pcx.drawImage(cv, 0, y, cv.width, h, 0, 0, cv.width, h);
+        const b64 = pc.toDataURL('image/jpeg', 0.92).split(',')[1], bin = atob(b64), u = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+        pages.push({jpeg:u, w:pc.width, h});
+        start = end;
+      }
+      const scope = state.province ? state.province : selected ? selected.name : 'ทั้งประเทศ';
+      download(buildPDF(pages, PW, PH, MG), `disability_${scope}_${fileStamp()}.pdf`);
+      toast('ส่งออก PDF แล้ว · ' + scope);
+    } catch (e) {
+      toast('สร้าง PDF ไม่สำเร็จ ลองใช้ Excel หรือ CSV แทน');
+      console.error(e);
+    } finally {
+      if (wasCompact) setExpanded(false);
+    }
+  }
+
+  document.querySelectorAll('[data-export]').forEach(box => {
+    const btn = box.querySelector('[data-export-toggle]');
+    btn.addEventListener('click', e => { e.stopPropagation(); const on = !box.classList.contains('open'); document.querySelectorAll('[data-export].open').forEach(b => b.classList.remove('open')); box.classList.toggle('open', on); btn.setAttribute('aria-expanded', String(on)); });
+    box.querySelectorAll('[data-fmt]').forEach(b => b.addEventListener('click', () => {
+      box.classList.remove('open'); btn.setAttribute('aria-expanded', 'false');
+      ({csv:exportCSV, xlsx:exportXLSX, pdf:exportPDF})[b.dataset.fmt]();
+    }));
+  });
+  document.addEventListener('click', () => document.querySelectorAll('[data-export].open').forEach(b => b.classList.remove('open')));
+  window.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('[data-export].open').forEach(b => b.classList.remove('open')); });
+
+  window.ThaiMap3D = {
+    regions: REGIONS, state, data: DATA,
+    select: id => { const r = byId(id); if (r) select(r); }, deselect,
+    calc: (o = {}) => { const rows = o.region ? rowsOf(byId(o.region).name) : DATA.rows; return val(agg(o.province ? rows.filter(r => r.p === o.province) : rows, o.type ?? -1, !o.region && !o.province), o.gender || 'all'); }
+  };
+})();
+</script>
+</body>
+</html>
